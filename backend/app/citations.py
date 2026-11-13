@@ -4,24 +4,31 @@ Il RAG non deve conoscere gli id del backend. Per ogni fonte si prova, in ordine
 - prodotto: product_id valido, altrimenti il nome della cartella o del PDF in un
   campo come source/file/path, altrimenti il testo del chunk;
 - lingua: lang/language, altrimenti il nome del file (en.md, de.pdf …);
-- sezione: section_id/section valido, altrimenti si cerca il testo del chunk
-  dentro le sezioni dei manuali.
+- sezione: section_id/section valido, poi il numero o il titolo in section_title
+  ("2.4 Specifications"), altrimenti si cerca il testo del chunk dentro le
+  sezioni dei manuali.
+- immagini: le figure scelte dal RAG (figures, con la legenda), poi image_paths
+  della fonte, altrimenti tutte quelle della sezione.
 Ciò che non si riesce a ricavare resta vuoto: la citazione si mostra comunque.
 """
 
 from __future__ import annotations
 
 import re
-from pathlib import PurePath
+from pathlib import Path, PurePath
 
 from app.catalog import Catalog
-from app.manuals import LANGS, Section
+from app.manuals import LANGS, NUMBERED_RE, Section
 from app.schemas import Citation, Figure, FigureLabel
 
 PATH_KEYS = ("source", "file", "file_path", "path", "filename", "file_name", "doc_id", "document", "url", "title")
+PRODUCT_KEYS = ("product_id", "product_slug", "slug", "product", "product_name")
 SECTION_KEYS = ("section_id", "section", "section_key", "section_number")
+SECTION_TITLE_KEYS = ("section_title", "heading", "section_name")
+IMAGE_KEYS = ("image_paths", "images", "image_path", "image")
 SCORE_KEYS = ("score", "relevance_score", "similarity", "distance")
 _LANG_FILE_RE = re.compile(r"(?:^|[/\\_.-])(en|de|it)\.(?:md|pdf)$", re.I)
+_PAGE_RE = re.compile(r"\d+")
 _WS_RE = re.compile(r"\s+")
 MAX_TEXT = 1500
 
@@ -48,19 +55,78 @@ class CitationResolver:
     # --- singoli campi ---------------------------------------------------------
 
     def _product(self, src: dict) -> str | None:
-        pid = str(src.get("product_id") or "").lower()
-        if pid in self.catalog.by_id:
-            return pid
-        for key in ("product", "product_name"):
-            value = str(src.get(key) or "").lower()
+        # id, slug ("bellabot_pro" vale come "bellabot-pro") o nome del prodotto
+        for key in PRODUCT_KEYS:
+            value = str(src.get(key) or "").strip().lower()
+            if not value:
+                continue
+            slug = re.sub(r"[\s_]+", "-", value)
             for p in self.catalog.products:
-                if value in (p.id, p.name.lower()):
+                if slug == p.id or value == p.name.lower():
                     return p.id
-        for key in PATH_KEYS:
-            value = str(src.get(key) or "").lower()
+        # nome della cartella o del PDF in un percorso, anche quello di un'immagine
+        values = [str(src.get(key) or "") for key in PATH_KEYS] + self._image_values(src)
+        for value in map(str.lower, values):
             for name, pid in self._path_names:
                 if name and name in value:
                     return pid
+        return None
+
+    @staticmethod
+    def _image_values(src: dict) -> list[str]:
+        values = []
+        for key in IMAGE_KEYS:
+            v = src.get(key)
+            values += [str(x) for x in v if x] if isinstance(v, (list, tuple)) else ([str(v)] if v else [])
+        return values
+
+    def _images(self, src: dict, pid: str) -> list[str]:
+        """Percorsi delle immagini della fonte → URL, solo se il file esiste nella cartella del prodotto.
+
+        Accetta "images/x.png", "manuals/<cartella>/images/x.png" o un percorso assoluto.
+        """
+        root = self.catalog.by_id[pid].product.path.resolve()
+        urls = []
+        for value in self._image_values(src):
+            value = value.replace("\\", "/")
+            idx = value.lower().rfind("images/")
+            candidates = [value[idx:]] if idx >= 0 else []
+            candidates.append(value)
+            for rel in candidates:
+                target = (root / rel).resolve() if not Path(rel).is_absolute() else Path(rel).resolve()
+                if target.is_relative_to(root) and target.is_file():
+                    url = self.catalog.file_url(pid, target.relative_to(root).as_posix())
+                    if url not in urls:
+                        urls.append(url)
+                    break
+        return urls
+
+    @staticmethod
+    def _section_by_title(manual, src: dict) -> Section | None:
+        """"2.4 Specifications" → sezione 2.4; senza numero, il titolo esatto."""
+        for key in SECTION_TITLE_KEYS:
+            title = _WS_RE.sub(" ", str(src.get(key) or "").replace(" ", " ")).strip()
+            if not title:
+                continue
+            m = NUMBERED_RE.match(title)
+            number = (m.group(1) or m.group(3)) if m else None
+            if number and (section := manual.get(number)):
+                return section
+            name = _norm((m.group(2) or m.group(4)) if m else title)
+            matches = [s for s in manual.sections if _norm(s.title) == name]
+            if len(matches) == 1:
+                return matches[0]
+        return None
+
+    @staticmethod
+    def _page(src: dict) -> int | None:
+        """page come numero, oppure il primo numero di un'etichetta "Page 2 (PDF page 3, right)"."""
+        for key in ("page", "page_number", "page_label"):
+            value = src.get(key)
+            if isinstance(value, int) and not isinstance(value, bool):
+                return value
+            if isinstance(value, str) and (m := _PAGE_RE.search(value)):
+                return int(m.group())
         return None
 
     @staticmethod
@@ -118,8 +184,11 @@ class CitationResolver:
             manual = self.catalog.by_id[pid].manuals.get(lang or "en")
             for key in SECTION_KEYS:
                 if manual and src.get(key) is not None and (section := manual.get(str(src[key]))):
-                    lang = manual.lang
                     break
+            if section is None and manual:
+                section = self._section_by_title(manual, src)
+            if section is not None:
+                lang = manual.lang
         if section is None and text:
             found = self._by_text(text, pid, lang) or (self._by_text(text, pid, None) if lang else None)
             if found:
@@ -127,9 +196,16 @@ class CitationResolver:
 
         data = self.catalog.get(pid) if pid else None
         manual = data.manuals.get(lang or "en") if data else None
-        page = src.get("page")
         label = self._label(src, data, section, n)
+        # immagini: prima le figure scelte dal RAG (con la legenda), poi gli image_paths
+        # della fonte, altrimenti tutte quelle della sezione
         figures = self._figures(src, pid)
+        if figures is not None:
+            images = [f.url for f in figures]
+        else:
+            images = self._images(src, pid) if pid else []
+            if not images and section:
+                images = [self.catalog.file_url(pid, img) for img in section.images]
         return Citation(
             n=n,
             label=label,
@@ -139,12 +215,11 @@ class CitationResolver:
             lang=manual.lang if manual else None,
             section_id=section.key if section else None,
             section_title=section.title if section else None,
-            page=section.page if section else (page if isinstance(page, int) else None),
+            page=section.page if section else self._page(src),
             score=self._score(src),
             source_url=self.catalog.source_url(pid, manual.lang, section.key) if section and manual else None,
             pdf_url=self.catalog.pdf_url(pid, manual, section.pdf_page if section else None) if manual else None,
-            image_urls=[f.url for f in figures] if figures is not None
-            else ([self.catalog.file_url(pid, img) for img in section.images] if section else []),
+            image_urls=images,
             figures=figures or [],
             note=str(src["note"])[:1000] if src.get("note") else None,
         )

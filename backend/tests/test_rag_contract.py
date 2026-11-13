@@ -156,3 +156,45 @@ def test_resolve_ambiguous_text_gets_no_product(client):
     # riga identica in sei manuali (BellaBot, KettyBot, HolaBot…): senza altri indizi non si sceglie a caso
     c = app.state.resolver.resolve({"text": "| Microphone | 6-mic circular array kit |"}, 1)
     assert c.product_id is None and c.source_url is None
+
+
+# --- fonti nel formato dello schema di Azam (tabella chunks) -------------------------
+
+def test_resolve_azam_chunk_by_section_title(client):
+    c = app.state.resolver.resolve({"product_slug": "bellabot_pro", "language": "en",
+                                    "section_title": "2.4 Specifications", "content": ""}, 1)
+    assert (c.product_id, c.lang, c.section_id) == ("bellabot-pro", "en", "2.4")
+    assert c.source_url and c.label.startswith("BellaBot Pro · 2.4")
+
+
+def test_resolve_section_title_without_number(client):
+    c = app.state.resolver.resolve({"product_id": "bellabot", "lang": "en", "section_title": "Specifications"}, 1)
+    assert c.section_id == "2.4"
+
+
+def test_resolve_figure_uses_its_own_image(client):
+    path = "manuals/BellaBot_User_Manual-multilanguage/images/en-p003R-fig01.png"
+    c = app.state.resolver.resolve({"product_id": 1, "language": "en", "block_type": "figure",
+                                    "content": "", "image_paths": [path, "images/non-esiste.png"]}, 1)
+    assert c.product_id == "bellabot"            # riconosciuto dalla cartella nel percorso
+    assert c.image_urls == ["/files/bellabot/images/en-p003R-fig01.png"]
+    assert client.get(c.image_urls[0]).status_code == 200
+
+
+def test_resolve_page_label(client):
+    c = app.state.resolver.resolve({"product_id": "bellabot", "page_label": "Page 7 (PDF page 5, left)"}, 1)
+    assert c.page == 7
+
+
+def test_resolve_image_path_cannot_escape_product_folder(client):
+    c = app.state.resolver.resolve({"product_id": "bellabot", "image_paths": ["../../../../etc/passwd",
+                                                                             "/etc/hosts"]}, 1)
+    assert c.image_urls == []
+
+
+def test_resolve_rag_figures_win_over_image_paths(client):
+    c = app.state.resolver.resolve({"product_id": "bellabot", "lang": "en", "section_id": "2.4",
+                                    "figures": [{"path": "images/en-p004R-fig01.png", "labels": [{"n": 1, "text": "Tray"}]}],
+                                    "image_paths": ["images/en-p003R-fig01.png"]}, 1)
+    assert c.image_urls == ["/files/bellabot/images/en-p004R-fig01.png"]
+    assert c.figures[0].labels[0].text == "Tray"

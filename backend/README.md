@@ -64,6 +64,20 @@ e gli oggetti `Document` / `NodeWithScore`. Una fonte può essere solo testo; i 
 `app/citations.py` ritrova prodotto, lingua e sezione dal percorso del file o dal testo del chunk,
 e se il testo è ambiguo tra più robot lascia la fonte senza link invece di indovinare.
 
+Le righe della tabella `chunks` prevista nell'architettura RAG (`docs/4_database_and_generalizability.md`)
+vanno bene così come sono:
+
+```json
+{"product_slug": "bellabot_pro", "language": "en", "section_title": "2.4 Specifications",
+ "page_label": "Page 3 (PDF page 4, left)", "block_type": "figure", "content": "…",
+ "image_paths": ["manuals/BellaBot_Pro_User_Manual-multilanguage/images/en-p003R-fig01.png"]}
+```
+
+Lo slug può avere `_` o `-`. La sezione si ricava dal numero o dal titolo in `section_title`.
+Immagini, in ordine di priorità: `figures` (le figure scelte dal motore, con la legenda:
+`[{"path": "images/…", "caption", "labels": [{"n", "text"}]}]`), poi `image_paths`,
+altrimenti tutte le immagini della sezione.
+
 Tre modi di collegarlo, scelti in `backend/.env`:
 
 | `RAG_ENGINE` | Configurazione | Quando usarlo |
