@@ -1,0 +1,76 @@
+# Richieste di prova per l'API Telembot.
+# Si eseguono da VS Code (estensione "REST Client") o da IntelliJ/PyCharm: clic su "Send Request".
+# Prima avvia il server: make dev
+
+@base = http://localhost:8000
+
+### Stato del servizio
+GET {{base}}/api/health
+
+### Tutti i prodotti (lingua dei testi: it, en, de)
+GET {{base}}/api/products?lang=it
+
+### Solo i robot
+GET {{base}}/api/products?category=robot&lang=it
+
+### Scheda prodotto: specifiche, sezioni, PDF
+GET {{base}}/api/products/bellabot?lang=it
+
+### Prodotto senza manuale italiano: risponde in inglese ("lang": "en")
+GET {{base}}/api/products/flashbot?lang=it
+
+### Confronto di 2-4 prodotti
+GET {{base}}/api/compare?ids=bellabot,kettybot-pro,holabot&lang=it
+
+### Sezione di un manuale (quello che si apre cliccando una citazione)
+GET {{base}}/api/sources/bellabot/it/2.4
+
+### Sezione con immagini
+GET {{base}}/api/sources/bellabot/en/2.3
+
+### Sezione che non esiste in italiano: torna la versione inglese con "is_fallback": true
+GET {{base}}/api/sources/flashbot/it/2.3
+
+### Numero di sezione ripetuto nel manuale: la seconda ha chiave "5.1~2" (~ va codificato come %7E)
+GET {{base}}/api/sources/bellabot/en/5.1%7E2
+
+### Immagine di un manuale
+GET {{base}}/files/bellabot/images/en-p003R-fig01.png
+
+### Ricerca (solo retrieval, nessuna risposta generata)
+POST {{base}}/api/search
+Content-Type: application/json
+
+{
+  "query": "battery capacity",
+  "product_ids": ["bellabot"],
+  "lang": "en",
+  "k": 5
+}
+
+### Chat in streaming: eventi sources → token… → done
+POST {{base}}/api/chat
+Content-Type: application/json
+
+{
+  "message": "Qual è la capacità della batteria di BellaBot?",
+  "lang": "auto",
+  "history": [],
+  "product_ids": []
+}
+
+### Feedback su una risposta (answer_id arriva nell'evento "done")
+POST {{base}}/api/feedback
+Content-Type: application/json
+
+{
+  "answer_id": "a_123456789abc",
+  "rating": "up",
+  "comment": "Risposta corretta"
+}
+
+### Errore atteso: prodotto inesistente (404)
+GET {{base}}/api/products/robotx
+
+### Errore atteso: un solo prodotto nel confronto (422)
+GET {{base}}/api/compare?ids=bellabot
