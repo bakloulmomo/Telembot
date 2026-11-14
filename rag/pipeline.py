@@ -164,20 +164,7 @@ def answer(question: str, history: list[dict] | None = None, lang: str | None = 
 
         result = _parse(message.content)
 
-        # Check: numbers in the answer must come from the evidence. One retry.
-        missing = checks.unsupported_numbers(result["answer"], evidence.text(), question)
-        if missing and result["status"] == "answered":
-            messages.append({"role": "assistant", "content": message.content})
-            messages.append({"role": "user", "content":
-                             "These numbers in your answer are not in the tool results: " + ", ".join(missing)
-                             + ". Rewrite the answer using only values printed in the tool results, copied exactly. "
-                               "If the value is not there, say the manuals do not state it."})
-            retry = _parse(_chat(messages, None).content)
-            still = checks.unsupported_numbers(retry["answer"], evidence.text(), question)
-            if len(still) < len(missing):
-                result, missing = retry, still
-
-    return _finish(result, evidence, missing, tool_calls_log, started)
+    return _finish(result, evidence, question, tool_calls_log, started)
 
 
 def _parse(content: str | None) -> dict:
@@ -189,7 +176,7 @@ def _parse(content: str | None) -> dict:
         return {"answer": content or "", "status": "answered", "language": "en", "figure_ids": []}
 
 
-def _finish(result: dict, evidence: Evidence, unsupported: list[str], tool_calls: list[dict], started: float) -> dict:
+def _finish(result: dict, evidence: Evidence, question: str, tool_calls: list[dict], started: float) -> dict:
     by_n = {s.n: s for s in evidence.sources}
     cited = [n for n in checks.cited_numbers(result["answer"]) if n in by_n]
     if result["status"] == "not_in_docs":
@@ -225,16 +212,21 @@ def _finish(result: dict, evidence: Evidence, unsupported: list[str], tool_calls
     status = result["status"]
     if status == "answered" and not sources:
         status = "not_in_docs"          # an answer with no source behind it is not grounded
+    cleaned_answer = checks.strip_tags(checks.renumber(result["answer"], mapping))
+    full_cited = [{"text": by_n[old].text} for old in cited]
+    number_audit = checks.audit_numbers(cleaned_answer, full_cited, question) if status == "answered" else {
+        "verified": [], "from_question": [], "unverified": []
+    }
     out = {
-        "answer": checks.strip_tags(checks.renumber(result["answer"], mapping)),
+        "answer": cleaned_answer,
         "status": status,
         "language": result["language"],
         "sources": sources,
+        "number_audit": number_audit,
         "debug": {
             "model": store.CHAT_MODEL,
             "tool_calls": tool_calls,
             "evidence_sources": len(evidence.sources),
-            "unsupported_numbers": unsupported,
             "dropped_figure_ids": [f for f in result["figure_ids"] if f not in evidence.figure_ids],
             "seconds": round(time.perf_counter() - started, 1),
         },

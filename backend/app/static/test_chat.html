@@ -32,6 +32,9 @@
   .source { display:flex; gap:8px; align-items:baseline; padding:4px 0; }
   .source a { color: var(--accent); }
   .meta { color: var(--muted); font-size:12px; margin-top:8px; }
+  .num-ok { background:#e6f4ea; color:#137333; padding:0 3px; border-radius:4px; font-weight:600; }
+  .num-warn { background:var(--warn-bg); color:var(--warn); padding:0 3px; border-radius:4px; font-weight:600; text-decoration:underline wavy #d97706; }
+  .audit { font-size:12px; color:var(--muted); margin-top:8px; display:flex; flex-wrap:wrap; gap:8px; }
   form { position:fixed; left:0; right:0; bottom:0; background:var(--bg); border-top:1px solid var(--line); padding:16px; }
   form div { max-width: 860px; margin:0 auto; display:flex; gap:8px; }
   input[type=text] { flex:1; font:inherit; padding:12px 14px; border:1px solid var(--line); border-radius:8px; }
@@ -71,10 +74,22 @@ const log = document.getElementById("log"), form = document.getElementById("form
 let history = [];
 
 const esc = s => s.replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-function renderAnswer(text, id) {
+function renderAnswer(text, id, audit) {
+  const verifiedMap = audit ? new Map((audit.verified || []).map(v => [v.value, v.sources])) : null;
+  const unverifiedSet = audit ? new Set(audit.unverified || []) : null;
   return esc(text)
     .replace(/\*\*(.+?)\*\*/g, "<b>$1</b>")
-    .replace(/\[(\d+)\]/g, (m, n) => `<a class="cite" href="#${id}-s${n}">${n}</a>`);
+    .replace(/\[(\d+)\]|(?<![\w.])(\d+(?:[.,]\d+)?)/g, (m, cite, num) => {
+      if (cite) return `<a class="cite" href="#${id}-s${cite}">${cite}</a>`;
+      if (verifiedMap && verifiedMap.has(num)) {
+        const srcs = verifiedMap.get(num).join(", ");
+        return `<span class="num-ok" title="Verified in source ${srcs}">${num}</span>`;
+      }
+      if (unverifiedSet && unverifiedSet.has(num)) {
+        return `<span class="num-warn" title="Not found in cited sources">${num}</span>`;
+      }
+      return m;
+    });
 }
 function add(cls, html) {
   const el = document.createElement("div");
@@ -110,7 +125,7 @@ async function ask(question) {
         if (event === "sources") citations = data.citations;
         else if (event === "token") { text += data.text; answerEl.innerHTML = renderAnswer(text, id); }
         else if (event === "error") { answerEl.innerHTML = `<span class="error">${esc(data.message)}</span>`; }
-        else if (event === "done") finish(bubble, id, citations, data);
+        else if (event === "done") finish(bubble, id, text, citations, data);
       }
     }
     history.push({role: "user", content: question}, {role: "assistant", content: text});
@@ -121,7 +136,10 @@ async function ask(question) {
   send.disabled = false; input.focus();
 }
 
-function finish(bubble, id, citations, done) {
+function finish(bubble, id, text, citations, done) {
+  if (done.number_audit) {
+    bubble.querySelector(".answer").innerHTML = renderAnswer(text, id, done.number_audit);
+  }
   let html = "";
   if (done.status === "not_in_docs") html += `<div class="badge">Not in the documentation</div>`;
   if (done.status === "needs_clarification") html += `<div class="badge">Needs clarification</div>`;
@@ -141,6 +159,15 @@ function finish(bubble, id, citations, done) {
       <div class="source" id="${id}-s${c.n}"><span class="cite">${c.n}</span>
         <span>${esc(c.label)}${c.page ? " · page " + c.page : ""}${c.lang ? " · " + c.lang.toUpperCase() : ""}
         ${c.pdf_url ? ` · <a href="${esc(c.pdf_url)}" target="_blank">open PDF page</a>` : ""}</span></div>`).join("") + `</div>`);
+  }
+  if (done.number_audit) {
+    const v = (done.number_audit.verified || []).map(x => `${esc(x.value)} [${x.sources.join(",")}]`).join(", ");
+    const u = (done.number_audit.unverified || []).map(x => esc(x)).join(", ");
+    if (v || u) {
+      bubble.insertAdjacentHTML("beforeend",
+        `<div class="audit">${v ? `<span><span class="num-ok">Verified</span>: ${v}</span>` : ""}`
+        + `${u ? `<span><span class="num-warn">Unverified</span>: ${u}</span>` : ""}</div>`);
+    }
   }
   bubble.insertAdjacentHTML("beforeend",
     `<div class="meta">${(done.latency_ms / 1000).toFixed(1)} s · status: ${esc(done.status || "–")} · language: ${esc(done.language || "–")}</div>`);

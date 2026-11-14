@@ -33,8 +33,10 @@ def main() -> None:
         print("\ntool calls:")
         for c in d["tool_calls"]:
             print(f"  {c['tool']} {c['args']}")
-        print(f"evidence sources: {d['evidence_sources']} · unsupported numbers: {d['unsupported_numbers']} "
-              f"· dropped figures: {d['dropped_figure_ids']}")
+        audit = result.get("number_audit") or {}
+        verified = [f"{v['value']}->{v['sources']}" for v in audit.get("verified", [])]
+        print(f"evidence sources: {d['evidence_sources']} · verified numbers: {verified} "
+              f"· unverified numbers: {audit.get('unverified', [])} · dropped figures: {d['dropped_figure_ids']}")
 
 
 if __name__ == "__main__":
