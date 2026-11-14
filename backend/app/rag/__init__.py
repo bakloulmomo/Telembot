@@ -40,6 +40,8 @@ class RagResult:
     language: str | None = None     # lingua della risposta, se il motore la fornisce
     gaps: list[str] = field(default_factory=list)     # parti della domanda che i manuali non coprono
     options: list[str] = field(default_factory=list)  # scelte proposte quando status = needs_clarification
+    number_audit: dict | None = None
+    hit_max_rounds: bool = False
 
 
 def _first(d: dict, keys: tuple[str, ...]) -> Any:
@@ -87,7 +89,9 @@ def normalize_result(raw: Any) -> RagResult:
     return RagResult(answer=str(answer or ""), sources=[normalize_source(s) for s in (sources or [])],
                      status=extra.get("status") or None, language=extra.get("language") or None,
                      gaps=[str(g) for g in extra.get("gaps") or [] if g],
-                     options=[str(o) for o in extra.get("options") or [] if o])
+                     options=[str(o) for o in extra.get("options") or [] if o],
+                     number_audit=extra.get("number_audit") or None,
+                     hit_max_rounds=bool((extra.get("debug") or {}).get("hit_max_rounds")))
 
 
 def normalize_sources(raw: Any) -> list[dict]:

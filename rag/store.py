@@ -21,7 +21,7 @@ CHAT_MODEL = os.getenv("CHAT_MODEL", "gpt-4.1")
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "text-embedding-3-small")
 LANGS = ("en", "de", "it")
 # Sections left out of search results unless nothing else is found.
-BOILERPLATE = ("compliance", "warranty", "front_matter")
+BOILERPLATE = ("front_matter",)
 
 SPEC_PARAMS = json.loads((REPO_DIR / "shared" / "spec_parameters.json").read_text(encoding="utf-8"))["parameters"]
 PARAM_BY_KEY = {p["key"]: p for p in SPEC_PARAMS}

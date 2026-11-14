@@ -43,26 +43,37 @@ def _numbers(text: str) -> set[str]:
     return out
 
 
-def unsupported_numbers(answer: str, evidence_text: str, question: str = "") -> list[str]:
-    """Numbers in the answer that appear neither in the evidence nor in the question.
+def audit_numbers(answer: str, cited_sources: list[dict], question: str = "") -> dict:
+    """Classify every number in the answer (including 0-12) against cited sources.
 
-    Citation markers are ignored. "25,6" and "25.6" count as the same number.
-    Small counts (0-12) are allowed without evidence: they are usually the model
-    counting items ("two robots", "3 steps").
+    Citation markers ([1], [2]) are ignored. "25,6" and "25.6" count as the same number.
+    Returns {"verified": [{"value": ..., "sources": [1, ...]}], "from_question": [...], "unverified": [...]}.
     """
     text = CITATION_RE.sub(" ", answer)
-    known = _numbers(evidence_text) | _numbers(question)
-    missing = []
+    q_nums = _numbers(question)
+    source_nums = {i: _numbers(s.get("text", "")) for i, s in enumerate(cited_sources, start=1)}
+
+    verified: list[dict] = []
+    seen_verified: set[str] = set()
+    from_question: list[str] = []
+    unverified: list[str] = []
+
     for raw in NUMBER_RE.findall(text):
         value = raw.replace(",", ".")
         short = value.rstrip("0").rstrip(".") if "." in value else value
-        if value in known or short in known:
-            continue
-        if re.fullmatch(r"\d+", value) and int(value) <= 12:
-            continue
-        if raw not in missing:
-            missing.append(raw)
-    return missing
+        matched = [i for i, nums in source_nums.items() if value in nums or short in nums]
+        if matched:
+            if raw not in seen_verified:
+                seen_verified.add(raw)
+                verified.append({"value": raw, "sources": matched})
+        elif value in q_nums or short in q_nums:
+            if raw not in from_question:
+                from_question.append(raw)
+        else:
+            if raw not in unverified:
+                unverified.append(raw)
+
+    return {"verified": verified, "from_question": from_question, "unverified": unverified}
 
 
 def count_numbers(answer: str) -> int:

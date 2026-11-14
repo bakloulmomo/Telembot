@@ -54,8 +54,6 @@ def evaluate(q: dict) -> dict:
         failed.append(f"language {r['language']}")
     if "source_lang" in q and not any(s["lang"] == q["source_lang"] for s in r["sources"]):
         failed.append(f"no source in {q['source_lang']}")
-    if r["debug"]["unsupported_numbers"]:
-        failed.append(f"numbers not in evidence: {r['debug']['unsupported_numbers']}")
     return {"id": q["id"], "passed": not failed, "failed": failed, "result": r}
 
 

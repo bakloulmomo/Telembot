@@ -177,8 +177,16 @@ def answer(question: str, history: list[dict] | None = None, lang: str | None = 
     tools = tool_schemas()
     with store.connect() as conn:
         message = None
+        hit_max_rounds = False
         for round_no in range(MAX_TOOL_ROUNDS + 1):
             last_round = round_no == MAX_TOOL_ROUNDS
+            if last_round:
+                hit_max_rounds = True
+                messages.append({
+                    "role": "user",
+                    "content": "Tool limit reached. Answer only from the evidence gathered so far, "
+                               "and if any part of the question could not be looked up, tell the user to ask a follow-up for the rest.",
+                })
             # First round: always look in the manuals, never answer from memory or from the chat history.
             message = _chat(messages, None if last_round else tools, must_use_tool=round_no == 0)
             if not message.tool_calls:
@@ -197,24 +205,14 @@ def answer(question: str, history: list[dict] | None = None, lang: str | None = 
         emit("check", f"Checking {n_values} value{'s' if n_values != 1 else ''} against the manual pages"
              if n_values else "Checking the answer against the manual pages")
 
-        # Check: numbers in the answer must come from the evidence. One retry.
-        missing = checks.unsupported_numbers(result["answer"], evidence.text(), question)
-        if missing and result["status"] == "answered":
-            messages.append({"role": "assistant", "content": message.content})
-            messages.append({"role": "user", "content":
-                             "These numbers in your answer are not in the tool results: " + ", ".join(missing)
-                             + ". Rewrite the answer using only values printed in the tool results, copied exactly. "
-                               "If the value is not there, say the manuals do not state it."})
-            retry = _parse(_chat(messages, None).content)
-            still = checks.unsupported_numbers(retry["answer"], evidence.text(), question)
-            if len(still) < len(missing):
-                result, missing = retry, still
-        if n_values and not missing:
-            emit("check", f"All {n_values} value{'s' if n_values != 1 else ''} found in the manuals")
-        elif missing:
-            emit("check", f"{len(missing)} value{'s' if len(missing) != 1 else ''} not found in the manuals")
-
-    return _finish(result, evidence, missing, tool_calls_log, started)
+    out = _finish(result, evidence, question, tool_calls_log, hit_max_rounds, started)
+    # the last progress line reports the number audit (checks.audit_numbers, done in _finish)
+    unverified = out["number_audit"]["unverified"]
+    if n_values and not unverified:
+        emit("check", f"All {n_values} value{'s' if n_values != 1 else ''} found in the manuals")
+    elif unverified:
+        emit("check", f"{len(unverified)} value{'s' if len(unverified) != 1 else ''} not found in the manuals")
+    return out
 
 
 def _manual_names(product_ids) -> str:
@@ -270,7 +268,8 @@ def _parse(content: str | None) -> dict:
                 "gaps": [], "options": [], "notes": {}}
 
 
-def _finish(result: dict, evidence: Evidence, unsupported: list[str], tool_calls: list[dict], started: float) -> dict:
+def _finish(result: dict, evidence: Evidence, question: str, tool_calls: list[dict],
+            hit_max_rounds: bool, started: float) -> dict:
     by_n = {s.n: s for s in evidence.sources}
     cited = [n for n in checks.cited_numbers(result["answer"]) if n in by_n]
     if result["status"] == "not_in_docs":
@@ -307,18 +306,24 @@ def _finish(result: dict, evidence: Evidence, unsupported: list[str], tool_calls
     status = result["status"]
     if status == "answered" and not sources:
         status = "not_in_docs"          # an answer with no source behind it is not grounded
+    cleaned_answer = checks.strip_tags(checks.renumber(result["answer"], mapping))
+    full_cited = [{"text": by_n[old].text} for old in cited]
+    number_audit = checks.audit_numbers(cleaned_answer, full_cited, question) if status == "answered" else {
+        "verified": [], "from_question": [], "unverified": []
+    }
     out = {
-        "answer": checks.strip_tags(checks.renumber(result["answer"], mapping)),
+        "answer": cleaned_answer,
         "status": status,
         "language": result["language"],
         "gaps": [checks.strip_tags(g) for g in result["gaps"]],
         "options": result["options"][:5] if status == "needs_clarification" else [],
         "sources": sources,
+        "number_audit": number_audit,
         "debug": {
             "model": store.CHAT_MODEL,
             "tool_calls": tool_calls,
             "evidence_sources": len(evidence.sources),
-            "unsupported_numbers": unsupported,
+            "hit_max_rounds": hit_max_rounds,
             "dropped_figure_ids": [f for f in result["figure_ids"] if f not in evidence.figure_ids],
             "seconds": round(time.perf_counter() - started, 1),
         },

@@ -120,6 +120,8 @@ async def chat(req: ChatRequest, catalog: Catalog = Depends(get_catalog),
                  answer_id, products, len(citations), latency_ms, req.message[:200])
         yield sse("done", {"answer_id": answer_id, "products": products, "latency_ms": latency_ms,
                            "status": result.status, "language": result.language,
-                           "gaps": result.gaps, "options": result.options})
+                           "gaps": result.gaps, "options": result.options,
+                           "number_audit": result.number_audit,
+                           "hit_max_rounds": result.hit_max_rounds})
 
     return StreamingResponse(stream(), media_type="text/event-stream", headers=SSE_HEADERS)
