@@ -10,6 +10,7 @@ from app.settings import get_settings
 @pytest.fixture(scope="module")
 def client():
     get_settings().stream_duration_s = 0
+    get_settings().mock_delay_s = 0
     with TestClient(app) as c:
         yield c
 
@@ -131,10 +132,14 @@ def test_search_unknown_product(client):
 
 
 def test_chat_stream_order(client):
-    r = client.post("/api/chat", json={"message": "Qual è la capacità della batteria di BellaBot?"})
+    r = client.post("/api/chat", json={"message": "Qual è la capacità della batteria di BellaBot?",
+                                       "product_ids": ["bellabot"]})
     assert r.status_code == 200 and r.headers["content-type"].startswith("text/event-stream")
     events = parse_sse(r.text)
     names = [e for e, _ in events]
+    assert names[:3] == ["progress"] * 3 and [d["step"] for _, d in events[:3]] == ["search", "read", "check"]
+    events = events[3:]
+    names = names[3:]
     assert names[0] == "sources" and names[-1] == "done" and "token" in names
     sources = events[0][1]["citations"]
     assert sources and sources[0]["n"] == 1 and sources[0]["product_id"] == "bellabot"
@@ -185,3 +190,47 @@ def test_feedback(client, tmp_path):
         assert client.post("/api/feedback", json={"answer_id": "a_1", "rating": "meh"}).status_code == 422
     finally:
         settings.feedback_file = original
+
+
+# --- motore finto: chiarimento, avvisi, figure ----------------------------------
+
+def test_mock_asks_which_model(client):
+    events = parse_sse(client.post("/api/chat", json={"message": "How long does BellaBot charge?"}).text)
+    sources = next(d for e, d in events if e == "sources")
+    done = events[-1][1]
+    assert done["status"] == "needs_clarification" and sources["citations"] == []
+    assert done["options"] == ["BellaBot", "BellaBot Pro", "Compare both"]
+    answer = "".join(d["text"] for e, d in events if e == "token")
+    assert answer.startswith("Which BellaBot do you mean?")
+
+
+def test_mock_answer_after_clarification(client):
+    history = [{"role": "user", "content": "How long does BellaBot charge?"},
+               {"role": "assistant", "content": "Which BellaBot do you mean?"}]
+    events = parse_sse(client.post("/api/chat", json={"message": "BellaBot Pro", "history": history}).text)
+    done = events[-1][1]
+    assert done["status"] == "answered" and done["products"] == ["bellabot-pro"]
+
+
+def test_mock_price_gap_note_and_figure(client):
+    events = parse_sse(client.post("/api/chat", json={
+        "message": "Where is the lidar on the T300 and what does it cost?"}).text)
+    done = events[-1][1]
+    assert done["gaps"] and "price" in done["gaps"][0]
+    citations = next(d for e, d in events if e == "sources")["citations"]
+    assert all(c["note"] for c in citations)
+    with_figure = [c for c in citations if c["figures"]]
+    assert len(with_figure) == 1
+    figure = with_figure[0]["figures"][0]
+    assert figure["url"].startswith("/files/t300/images/") and figure["labels"]
+    assert with_figure[0]["image_urls"] == [figure["url"]]
+
+
+def test_source_panel_fields(client):
+    s = client.get("/api/sources/bellabot/en/1.1").json()
+    assert (s["manual_title"], s["category"], s["parent_number"], s["parent_title"]) == \
+        ("BellaBot User Manual", "robot", "1", "Safety instructions")
+    assert (s["page"], s["pdf_page"], s["pdf_side"], s["pdf_file"]) == \
+        (1, 3, "left", "BellaBot_User_Manual-multilanguage.pdf")
+    de = client.get("/api/sources/bellabot/de/1.1").json()
+    assert de["pdf_side"] in ("left", "right")

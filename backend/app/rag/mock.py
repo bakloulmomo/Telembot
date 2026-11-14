@@ -3,15 +3,22 @@
 Cerca per parole chiave (un BM25 semplificato) nelle sezioni dei manuali e
 risponde con un testo di prova che elenca le sezioni trovate.
 Non usa LLM e non capisce domande in una lingua diversa dalla fonte.
+
+Imita anche il resto del motore vero, così l'interfaccia si può provare tutta:
+passi di avanzamento (search, read, check) con una breve attesa, una domanda di
+chiarimento quando il modello è ambiguo ("BellaBot" senza dire se è la Pro), un
+avviso quando si chiede il prezzo, una nota e una figura per le fonti.
 """
 
 from __future__ import annotations
 
+import asyncio
 import math
 import re
 from collections import Counter
 from app.catalog import Catalog
 from app.rag import RagResult
+from app.settings import get_settings
 
 _WORD_RE = re.compile(r"\w+", re.UNICODE)
 _FIGURE_LINE_RE = re.compile(r"^\s*(!\[|>|\*(Labels|Beschriftungen|Etichette))")
@@ -48,6 +55,26 @@ def detect_lang(text: str) -> str:
     scores = {lang: sum(w in sw for w in words) for lang, sw in _STOPWORDS.items()}
     best = max(scores, key=scores.get)
     return best if scores[best] > 0 else "en"
+
+
+_PRICE_RE = re.compile(r"\b(price|prices|cost|costs|prezz\w*|costa|costo|preis\w*|kost\w*)\b", re.I)
+_LABEL_RE = re.compile(r"^\s*[-*]\s+\*\*([^*]+)\*\*\s*(.*)$")
+_CAPTION_RE = re.compile(r"^>\s*\*[^*]+\*:?\s*(.*)$")
+
+_MORE = {
+    "it": {"which": "Quale {name} intendi?", "why": "{a} e {b} hanno valori diversi nei loro manuali.",
+           "both": "Confronta entrambi", "gap": "Non ho potuto verificare il prezzo: nessuno dei 22 manuali "
+           "riporta prezzi o disponibilità.", "note": "Risposta di prova: questa sezione contiene più parole "
+           "della domanda delle altre."},
+    "en": {"which": "Which {name} do you mean?", "why": "{a} and {b} have different values in their manuals.",
+           "both": "Compare both", "gap": "I couldn't verify the price: none of the 22 manuals lists prices "
+           "or availability.", "note": "Test answer: this section shares more words with the question "
+           "than the others."},
+    "de": {"which": "Welchen {name} meinen Sie?", "why": "{a} und {b} haben in ihren Handbüchern "
+           "unterschiedliche Werte.", "both": "Beide vergleichen", "gap": "Den Preis konnte ich nicht "
+           "prüfen: Keines der 22 Handbücher nennt Preise oder Verfügbarkeit.", "note": "Testantwort: Dieser "
+           "Abschnitt hat mehr Wörter mit der Frage gemeinsam als die anderen."},
+}
 
 
 class MockRag:
@@ -129,17 +156,68 @@ class MockRag:
                 break
         return results
 
-    async def ask(self, question: str, history: list[dict], lang: str | None, product_ids: list[str]) -> RagResult:
+    def _figure(self, product_id: str, lang: str, section_id: str) -> dict | None:
+        """Prima figura della sezione, con didascalia e legenda come le passa il motore vero."""
+        manual = self.catalog.by_id[product_id].manuals.get(lang)
+        section = manual.get(section_id) if manual else None
+        if not section or not section.images:
+            return None
+        path, caption, labels = section.images[0], None, []
+        lines = section.markdown.splitlines()
+        start = next(i for i, line in enumerate(lines) if path in line)
+        for line in lines[start + 1:start + 40]:
+            if line.startswith("!["):
+                break
+            if (m := _CAPTION_RE.match(line)) and caption is None:
+                caption = m.group(1).strip() or None
+            elif m := _LABEL_RE.match(line):
+                labels.append({"n": m.group(1).strip(), "text": m.group(2).strip()})
+        return {"id": path, "path": path, "caption": caption, "labels": labels}
+
+    async def ask(self, question: str, history: list[dict], lang: str | None, product_ids: list[str],
+                  progress=None) -> RagResult:
+        delay = get_settings().mock_delay_s
+
+        async def emit(step: str, detail: str) -> None:
+            if progress:
+                progress({"step": step, "detail": detail})
+            await asyncio.sleep(delay)
+
         lang = lang or detect_lang(question)
-        products = product_ids or self.detect_products(question)
-        hits = await self.search(question, products, lang, k=3)
         names = {pid: d.product.name for pid, d in self.catalog.by_id.items()}
+        # una risposta a un chiarimento ("BellaBot Pro") vale insieme alla domanda di prima
+        previous = next((h["content"] for h in reversed(history) if h.get("role") == "user"), "")
+        query = f"{previous} {question}".strip() if history else question
+        products = product_ids or self.detect_products(question) or self.detect_products(query)
+        manuals = " and ".join(f"{names[p]} User Manual" for p in products[:2])
+        await emit("search", f"Now reading: {manuals}" if manuals else f"Searching all {len(names)} manuals")
+
+        # "BellaBot" senza dire quale: si chiede, come farebbe il motore vero
+        ambiguous = [p for p in products if f"{p}-pro" in names and f"{p}-pro" not in products]
+        if ambiguous and not product_ids and not history:
+            base = ambiguous[0]
+            texts = _MORE[lang]
+            return RagResult(
+                answer=texts["which"].format(name=names[base]) + "\n"
+                + texts["why"].format(a=names[base], b=names[f"{base}-pro"]),
+                status="needs_clarification", language=lang,
+                options=[names[base], names[f"{base}-pro"], texts["both"]])
+
+        hits = await self.search(query, products, lang, k=3)
+        await emit("read", f"Reading {len(hits)} matching section{'s' if len(hits) != 1 else ''}")
         if hits:
             parts = [_TEXTS[lang]["intro"]]
             for i, h in enumerate(hits, start=1):
                 snippet = re.sub(r"\s+", " ", h["text"])[:220].strip()
                 parts.append(f"- **{names[h['product_id']]} § {h['section_id']}** [{i}]: {snippet}…\n")
             answer = "".join(parts)
+            # una sola figura, dalla prima fonte che ne ha una
+            figures = [self._figure(h["product_id"], h["lang"], h["section_id"]) for h in hits]
+            first = next((i for i, f in enumerate(figures) if f), None)
+            hits = [{**h, "note": _MORE[lang]["note"], "figures": [figures[i]] if i == first else []}
+                    for i, h in enumerate(hits)]
         else:
             answer = _TEXTS[lang]["none"]
-        return RagResult(answer=answer, sources=hits)
+        await emit("check", "Checking each value against its page")
+        return RagResult(answer=answer, sources=hits, status="answered" if hits else "not_in_docs", language=lang,
+                         gaps=[_MORE[lang]["gap"]] if _PRICE_RE.search(question) else [])

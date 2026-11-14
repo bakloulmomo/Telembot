@@ -117,6 +117,12 @@ class SourceSection(BaseModel):
     page_end: int | None
     pdf_page: int | None
     pdf_url: str | None      # PDF originale, già posizionato sulla pagina
+    pdf_side: Literal["left", "right"] | None = None   # colonna della pagina del PDF
+    pdf_file: str | None = None       # nome del PDF originale
+    manual_title: str = ""            # es. "BellaBot User Manual"
+    category: Literal["robot", "accessory"] = "robot"
+    parent_number: str | None = None  # sezione che la contiene, es. "1" per la 1.1
+    parent_title: str | None = None
     markdown: str            # con gli URL delle immagini già riscritti
     image_urls: list[str]
     available_langs: list[Lang]

@@ -24,6 +24,8 @@ def get_source(product_id: str, lang: Lang, key: str, fallback: bool = True,
                             detail=f"Sezione '{key}' non trovata nel manuale {data.product.name} ({lang}).")
 
     idx = manual.sections.index(section)
+    parent_number = section.number.rsplit(".", 1)[0] if section.number and "." in section.number else None
+    parent = manual.get(parent_number) if parent_number else None
     return SourceSection(
         product_id=product_id,
         product_name=data.product.name,
@@ -37,6 +39,12 @@ def get_source(product_id: str, lang: Lang, key: str, fallback: bool = True,
         page_end=section.page_end,
         pdf_page=section.pdf_page,
         pdf_url=catalog.pdf_url(product_id, manual, section.pdf_page),
+        pdf_side=section.pdf_side,
+        pdf_file=manual.source_pdf,
+        manual_title=manual.meta.get("title") or f"{data.product.name} User Manual",
+        category=data.product.category,
+        parent_number=parent.number if parent else None,
+        parent_title=parent.title if parent else None,
         markdown=catalog.rewrite_images(product_id, section.markdown),
         image_urls=[catalog.file_url(product_id, img) for img in section.images],
         available_langs=[lg for lg, m in data.manuals.items() if m.get(key)],

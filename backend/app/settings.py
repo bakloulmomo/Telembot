@@ -26,6 +26,7 @@ class Settings(BaseSettings):
     rag_search_url: str | None = None
     rag_timeout_s: float = 60.0          # attesa massima della risposta del RAG
     stream_duration_s: float = 1.5       # durata massima dell'effetto "scrittura" nel frontend
+    mock_delay_s: float = 0.6            # motore finto: attesa tra un passo e l'altro, per vedere l'avanzamento
 
     # Domande a voce (POST /api/transcribe). Senza chiave il frontend usa il riconoscimento del browser.
     openai_api_key: str | None = None
@@ -33,7 +34,7 @@ class Settings(BaseSettings):
     transcribe_model: str = "gpt-4o-mini-transcribe"
     transcribe_max_mb: float = 10.0
 
-    cors_origins: list[str] =["http://localhost:5173", "http://127.0.0.1:5173"]
+    cors_origins: list[str] = ["http://localhost:5173", "http://127.0.0.1:5173"]
 
     @field_validator("data_dir", "products_file", "feedback_file")
     @classmethod

@@ -25,8 +25,10 @@ LANGS = ("en", "de", "it")
 PAGE_RE = re.compile(
     r"^\*(?:(?:Page|Seite|Pagina) (\d+) \()?"
     r"(?:PDF page|PDF-Seite|pagina PDF|Pagina PDF) (\d+)"
-    r"(?:, [^)*]+)?\)?\*\s*$"
+    r"(?:, ([^)*]+))?\)?\*\s*$"
 )
+# colonna della pagina del PDF, nelle tre lingue dei marcatori
+SIDES = {"left": "left", "links": "left", "sinistra": "left", "right": "right", "rechts": "right", "destra": "right"}
 HEADING_RE = re.compile(r"^(#{1,6})\s+(.+?)\s*$")
 # "2.4 Titolo", "2. Titolo" oppure "1.1Titolo" (senza spazio, solo con almeno un punto)
 NUMBERED_RE = re.compile(r"^(\d+(?:\.\d+)*)\.?\s+(\S.*)$|^(\d+\.\d+(?:\.\d+)*)(?=[^\d\s.])(.+)$")
@@ -43,6 +45,7 @@ class Section:
     page: int | None         # pagina stampata dove inizia
     pdf_page: int | None     # pagina del PDF multilingue originale dove inizia
     page_end: int | None = None
+    pdf_side: str | None = None  # "left" | "right": colonna della pagina del PDF dove inizia
     lines: list[str] = field(default_factory=list)
 
     @property
@@ -93,6 +96,7 @@ def parse_manual(path: Path, lang: str) -> Manual:
     seen: dict[str, int] = {}
     page: int | None = None
     pdf_page: int | None = None
+    pdf_side: str | None = None
     current = Section(key="0", number=None, title=meta.get("title", ""), level=0, page=None, pdf_page=None)
 
     def has_content(s: Section) -> bool:
@@ -102,8 +106,9 @@ def parse_manual(path: Path, lang: str) -> Manual:
         if m := PAGE_RE.match(line):
             page = int(m.group(1)) if m.group(1) else None
             pdf_page = int(m.group(2))
+            pdf_side = SIDES.get((m.group(3) or "").strip().lower())
             if not has_content(current):
-                current.page, current.pdf_page = page, pdf_page
+                current.page, current.pdf_page, current.pdf_side = page, pdf_page, pdf_side
             current.page_end = page
             continue
         if SEPARATOR_RE.match(line):
@@ -118,7 +123,7 @@ def parse_manual(path: Path, lang: str) -> Manual:
             seen[number] = seen.get(number, 0) + 1
             key = number if seen[number] == 1 else f"{number}~{seen[number]}"
             current = Section(key=key, number=number, title=title, level=number.count(".") + 1,
-                              page=page, pdf_page=pdf_page, page_end=page)
+                              page=page, pdf_page=pdf_page, page_end=page, pdf_side=pdf_side)
             continue
         current.lines.append(line)
 
