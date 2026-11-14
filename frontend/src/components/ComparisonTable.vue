@@ -58,4 +58,5 @@ const lastRow = computed(() => props.comparison.rows.length + 1)
 .fit.yes .icon { color: var(--color-icon-success); }
 .fit.no { color: var(--color-text-secondary); }
 .fit.no .icon { color: var(--color-text-tertiary); }
+@media (max-width: 760px) { .table { min-width: 560px; } }
 </style>

@@ -1,15 +1,24 @@
 <script setup>
+import { computed } from 'vue'
 import ProgressSteps from './ProgressSteps.vue'
 import ShortAnswer from './ShortAnswer.vue'
 import AnswerProse from './AnswerProse.vue'
 import ComparisonTable from './ComparisonTable.vue'
-defineProps({
+const props = defineProps({
   turn: { type: Object, required: true },
   selectedClaim: { type: Number, default: null },
   selectedGap: { type: Number, default: null },
   first: { type: Boolean, default: false },   // the first question morphs from the home composer
 })
 defineEmits(['select', 'select-gap'])
+// the short answer block only when it has something to show: values or a gap topic (technical), a headline (plain).
+// Without this an empty block adds a second 36 px gap above DETAILS when the engine sends no short answer.
+const hasShort = computed(() => {
+  const a = props.turn.answer
+  if (!a) return false
+  if (a.style === 'technical') return !!a.short_answer?.values?.length || !!a.gaps?.some((g) => g.topic)
+  return !!a.short_answer?.headline
+})
 </script>
 
 <template>
@@ -28,7 +37,7 @@ defineEmits(['select', 'select-gap'])
 
     <!-- the answer arrives in reading order: short answer, then details sentence by sentence, then the table -->
     <template v-if="turn.phase === 'done' && turn.answer">
-      <ShortAnswer v-if="turn.answer.short_answer || turn.answer.gaps?.length" :answer="turn.answer" />
+      <ShortAnswer v-if="hasShort" :answer="turn.answer" />
       <section v-if="turn.answer.paragraphs.length || turn.answer.gaps.length" class="section">
         <p class="t-overline label m-fade" style="--i: 2">Details</p>
         <AnswerProse
@@ -38,7 +47,8 @@ defineEmits(['select', 'select-gap'])
       </section>
       <section v-if="turn.answer.comparison" class="section">
         <p class="t-overline label m-fade" :style="{ '--i': 4 + turn.answer.paragraphs.flat().length }">Comparison</p>
-        <ComparisonTable :comparison="turn.answer.comparison" :delay="5 + turn.answer.paragraphs.flat().length" />
+        <!-- on narrow windows the table scrolls sideways instead of squeezing the values -->
+        <div class="table-scroll"><ComparisonTable :comparison="turn.answer.comparison" :delay="5 + turn.answer.paragraphs.flat().length" /></div>
       </section>
     </template>
   </article>
@@ -52,4 +62,5 @@ defineEmits(['select', 'select-gap'])
 .status { padding: 0 var(--column-inset); margin-top: -24px; }
 .section { display: flex; flex-direction: column; gap: 12px; }
 .label { color: var(--color-text-tertiary); padding-left: var(--column-inset); }
+.table-scroll { overflow-x: auto; }
 </style>

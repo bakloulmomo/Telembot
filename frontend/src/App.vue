@@ -117,7 +117,8 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
 </template>
 
 <style scoped>
-.app { display: flex; height: 100vh; min-width: 1100px; overflow: hidden; }
+/* window height on every screen (dvh: also on phones, where 100vh is taller than the visible area) */
+.app { display: flex; height: 100vh; height: 100dvh; overflow: hidden; }
 .main { position: relative; flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .column { width: var(--column-width); max-width: calc(100% - 48px); margin: 0 auto; }
 .scroller { flex: 1; overflow-y: auto; }
@@ -134,4 +135,15 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
 .push-enter-active.slot, .push-leave-active.slot { overflow: hidden; }
 .slot--left { width: 300px; justify-content: flex-end; }    /* the drawer's right edge enters first: it comes from the left */
 .slot--right { width: var(--panel-width); justify-content: flex-start; } /* the panel's left edge enters first: it comes from the right */
+
+/* Narrower than 1100 there is no room to push the page (DESIGN-SPEC is drawn at 1440):
+   the drawer and the Sources panel lie over the page instead, still full window height. */
+@media (max-width: 1099px) {
+  .slot { position: fixed; top: 0; bottom: 0; height: auto; z-index: 20; }
+  .slot--left { left: 0; width: min(300px, 100vw); }
+  .slot--right { right: 0; width: min(var(--panel-width), 100vw); }
+}
+@media (max-width: 640px) {
+  .column { max-width: calc(100% - 32px); }
+}
 </style>

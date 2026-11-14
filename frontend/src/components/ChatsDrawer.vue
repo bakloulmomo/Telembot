@@ -71,4 +71,6 @@ const sorted = (items) => [...items].sort((a, b) => Number(b.pinned) - Number(a.
 .row:hover .pin { display: block; }
 .row.pinned .pin { display: block; color: var(--color-text-tertiary); }
 .row.pinned:hover .pin { color: var(--color-text-primary); }
+
+@media (max-width: 1099px) { .drawer { width: min(300px, 100vw); } }
 </style>

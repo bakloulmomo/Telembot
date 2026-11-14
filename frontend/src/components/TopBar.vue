@@ -13,7 +13,7 @@ defineEmits(['open-chats'])
       <img class="mark" src="/brand/telmekom-mark.png" width="24" height="24" alt="Telmekom" />
       <span class="t-headline">Telembot</span>
     </div>
-    <span v-else></span>
+    <!-- drawer open: the counts move to the left edge of the page area (screen 00) -->
     <span class="t-callout-regular counts">{{ counts }}</span>
   </header>
 </template>
@@ -29,4 +29,8 @@ defineEmits(['open-chats'])
 .menu { color: var(--color-text-primary); }
 .mark { display: block; flex: none; }
 .counts { color: var(--color-text-secondary); }
+@media (max-width: 640px) {
+  .top-bar { padding: 0 16px 0 12px; }
+  .counts { display: none; }      /* no room next to the brand on a phone */
+}
 </style>

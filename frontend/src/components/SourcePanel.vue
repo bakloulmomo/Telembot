@@ -99,7 +99,7 @@ const doc = computed(() => c.value)
 
 <style scoped>
 .panel {
-  width: var(--panel-width); flex: none; height: 100%;
+  width: var(--panel-width); flex: none; height: 100%;   /* the slot is the window height: only .body scrolls */
   background: var(--color-bg-elevated);
   border-left: 1px solid var(--color-border-subtle);
   box-shadow: var(--elevation-3-sheet-left);
@@ -142,4 +142,12 @@ hr { border: 0; height: 1px; background: var(--color-border-subtle); margin: 0; 
 /* close button on the amber band: near-white circle, amber X (the grey one disappeared on amber) */
 .is-gap .header .icon-btn { background: var(--color-bg-elevated); color: var(--color-text-warning); }
 .is-gap .body { padding-top: 24px; }
+
+/* narrow windows: the panel lies over the page and is never wider than the window */
+@media (max-width: 1099px) { .panel { width: min(var(--panel-width), 100vw); } }
+@media (max-width: 640px) {
+  .header { padding: 0 16px 0 20px; }
+  .body { padding: 4px 20px 24px; }
+  .footer { padding: 16px 20px 20px; }
+}
 </style>

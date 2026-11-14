@@ -259,7 +259,7 @@ function onDone(turn, data, text, citations) {
     meta: notInDocs ? '' : metaLine(style, citations, products),
     text: notInDocs ? '' : text,
     short_answer: data.short_answer || null,
-    gaps: (data.gaps || []).map((g) => (typeof g === 'string' ? { text: g } : g)).concat(notInDocs ? [{ text }] : []),
+    gaps: uniqueGaps((data.gaps || []).map((g) => (typeof g === 'string' ? { text: g } : g)).concat(notInDocs ? [{ text }] : [])),
     comparison: data.comparison || null,
     citations,
   })
@@ -268,8 +268,27 @@ function onDone(turn, data, text, citations) {
   answer.paragraphs = answer.paragraphs
     .map((p) => p.filter((c) => c.ns.length || !gapTexts.has(simplify(c.text))))
     .filter((p) => p.length)
+  // plain answers without a short answer from the engine: the first sentence is the headline (DATA.md fallback),
+  // only when it reads as one: short, and not the start of a list ("The robots that fit … are: KettyBot …")
+  const head = answer.paragraphs[0]?.[0]
+  const first = head && /^(.+?[.!?])(?:\s+(?=[\p{Lu}\d])|$)/u.exec(head.text)?.[1]
+  if (style === 'plain' && !answer.short_answer && first && first.length <= 120 && !first.includes(':')) {
+    const rest = head.text.slice(first.length).trim()
+    if (rest) head.text = rest                        // the rest of the claim stays in DETAILS with its sources
+    else { answer.paragraphs[0].shift(); if (!answer.paragraphs[0].length) answer.paragraphs.shift() }
+    answer.short_answer = { headline: first }
+    answer.shortParts = !rest && head.ns.length ? [{ index: head.index, text: '', ns: head.ns }] : null
+  }
   turn.answer = answer
   turn.phase = 'done'
+}
+
+// "Not in the manuals" panel: the same sentence once, "Found" is fixed interface copy (DESIGN-SPEC 1.11b)
+function uniqueGaps(gaps) {
+  const seen = new Set()
+  return gaps
+    .map((g) => ({ ...g, text: g.text.trim(), found: g.found || 'No source in the manuals' }))
+    .filter((g) => g.text && !seen.has(simplify(g.text)) && seen.add(simplify(g.text)))
 }
 
 function normalizeCitation(c) {
