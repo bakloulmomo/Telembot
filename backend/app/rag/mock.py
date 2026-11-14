@@ -58,6 +58,7 @@ def detect_lang(text: str) -> str:
 
 
 _PRICE_RE = re.compile(r"\b(price|prices|cost|costs|prezz\w*|costa|costo|preis\w*|kost\w*)\b", re.I)
+_MD_RE = re.compile(r"(?m)^\s*(?:#{1,6}|[-*]|\d+\.)\s+|\||\*\*|^-{3,}$")   # simboli Markdown negli estratti
 _LABEL_RE = re.compile(r"^\s*[-*]\s+\*\*([^*]+)\*\*\s*(.*)$")
 _CAPTION_RE = re.compile(r"^>\s*\*[^*]+\*:?\s*(.*)$")
 
@@ -208,7 +209,7 @@ class MockRag:
         if hits:
             parts = [_TEXTS[lang]["intro"]]
             for i, h in enumerate(hits, start=1):
-                snippet = re.sub(r"\s+", " ", h["text"])[:220].strip()
+                snippet = re.sub(r"\s+", " ", _MD_RE.sub(" ", h["text"]))[:220].strip()
                 parts.append(f"- **{names[h['product_id']]} § {h['section_id']}** [{i}]: {snippet}…\n")
             answer = "".join(parts)
             # una sola figura, dalla prima fonte che ne ha una
@@ -220,4 +221,4 @@ class MockRag:
             answer = _TEXTS[lang]["none"]
         await emit("check", "Checking each value against its page")
         return RagResult(answer=answer, sources=hits, status="answered" if hits else "not_in_docs", language=lang,
-                         gaps=[_MORE[lang]["gap"]] if _PRICE_RE.search(question) else [])
+                         gaps=[_MORE[lang]["gap"]] if _PRICE_RE.search(query) else [])

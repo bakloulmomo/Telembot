@@ -9,6 +9,10 @@ __pycache__/
 *.pyc
 .pytest_cache/
 
+# Frontend
+node_modules/
+frontend/dist/
+
 # Secrets and local settings
 .env
 
@@ -20,3 +24,4 @@ var/
 
 # Local tool settings
 .claude/
+.playwright-mcp/

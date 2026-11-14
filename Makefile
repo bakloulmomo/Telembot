@@ -1,4 +1,4 @@
-.PHONY: install dev test
+.PHONY: install dev test frontend-install frontend
 
 install:            ## crea l'ambiente Python del backend e installa le dipendenze
 	cd backend && python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
@@ -9,3 +9,9 @@ dev:                ## avvia il backend su http://localhost:8000 (ricarica a ogn
 
 test:               ## esegue i test del backend
 	cd backend && .venv/bin/python -m pytest -q
+
+frontend-install:   ## installa le dipendenze del frontend Vue
+	cd frontend && npm install
+
+frontend:           ## avvia il frontend su http://localhost:5173 (serve anche `make dev`)
+	cd frontend && npm run dev
