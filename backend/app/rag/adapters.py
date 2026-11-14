@@ -56,8 +56,11 @@ class PythonRag:
         if self._search is None:
             self.search = None
 
-    async def ask(self, question: str, history: list[dict], lang: str | None, product_ids: list[str]) -> RagResult:
-        raw = await _call(self._answer, question, history=history, lang=lang, product_ids=product_ids)
+    async def ask(self, question: str, history: list[dict], lang: str | None, product_ids: list[str],
+                  progress: Callable[[dict], None] | None = None) -> RagResult:
+        """`progress` riceve eventi {"step", "detail"} mentre il motore lavora, se la funzione lo accetta."""
+        raw = await _call(self._answer, question, history=history, lang=lang, product_ids=product_ids,
+                          progress=progress)
         return normalize_result(raw)
 
     async def search(self, query: str, product_ids: list[str], lang: str | None, k: int) -> list[dict]:

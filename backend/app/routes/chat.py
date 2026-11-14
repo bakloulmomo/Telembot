@@ -6,6 +6,7 @@ stream SSE, sempre in quest'ordine:
 """
 
 import asyncio
+import inspect
 import json
 import logging
 import re
@@ -31,6 +32,12 @@ def sse(event: str, data: dict) -> str:
     return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
 
 
+def _progress_event(ev) -> dict:
+    """Solo campi testuali brevi: il motore decide cosa dire, il frontend lo mostra."""
+    ev = ev if isinstance(ev, dict) else {"detail": str(ev)}
+    return {"step": str(ev.get("step") or "")[:40], "detail": str(ev.get("detail") or "")[:300]}
+
+
 def _check_products(catalog: Catalog, product_ids: list[str]) -> None:
     unknown = [pid for pid in product_ids if catalog.get(pid) is None]
     if unknown:
@@ -52,7 +59,7 @@ async def search(req: SearchRequest, catalog: Catalog = Depends(get_catalog),
 @router.post("/chat", summary="Risposta in streaming SSE con fonti",
              response_class=StreamingResponse,
              responses={200: {"content": {"text/event-stream": {}},
-                              "description": "Eventi `sources`, `token`, `done` oppure `error`."}})
+                              "description": "Eventi `progress` (facoltativi), `sources`, `token`, `done` oppure `error`."}})
 async def chat(req: ChatRequest, catalog: Catalog = Depends(get_catalog),
                resolver: CitationResolver = Depends(get_resolver), engine=Depends(get_engine)):
     _check_products(catalog, req.product_ids)
@@ -61,11 +68,26 @@ async def chat(req: ChatRequest, catalog: Catalog = Depends(get_catalog),
 
     async def stream():
         start = time.perf_counter()
+        args = (req.message, [h.model_dump() for h in req.history],
+                None if req.lang == "auto" else req.lang, req.product_ids)
+        # Se il motore accetta `progress`, i suoi passi arrivano al frontend come eventi "progress".
+        events: asyncio.Queue = asyncio.Queue()
+        loop = asyncio.get_running_loop()
+        kwargs = {}
+        if "progress" in inspect.signature(engine.ask).parameters:
+            kwargs["progress"] = lambda ev: loop.call_soon_threadsafe(events.put_nowait, ev)
+        task = asyncio.create_task(asyncio.wait_for(engine.ask(*args, **kwargs), timeout=settings.rag_timeout_s))
         try:
-            result = await asyncio.wait_for(
-                engine.ask(req.message, [h.model_dump() for h in req.history],
-                           None if req.lang == "auto" else req.lang, req.product_ids),
-                timeout=settings.rag_timeout_s)
+            while not task.done():
+                getter = asyncio.create_task(events.get())
+                await asyncio.wait({task, getter}, return_when=asyncio.FIRST_COMPLETED)
+                if getter.done():
+                    yield sse("progress", _progress_event(getter.result()))
+                else:
+                    getter.cancel()
+            while not events.empty():
+                yield sse("progress", _progress_event(events.get_nowait()))
+            result = task.result()
         except asyncio.TimeoutError:
             log.warning("RAG timeout answer_id=%s", answer_id)
             yield sse("error", {"code": "rag_timeout",
@@ -76,6 +98,9 @@ async def chat(req: ChatRequest, catalog: Catalog = Depends(get_catalog),
             yield sse("error", {"code": "rag_error",
                                 "message": "Non è stato possibile generare la risposta. Riprova tra poco."})
             return
+        finally:
+            if not task.done():      # il client ha chiuso la connessione (es. "Stop")
+                task.cancel()
 
         citations = [resolver.resolve(s, i) for i, s in enumerate(result.sources, start=1)]
         yield sse("sources", {"citations": [c.model_dump() for c in citations]})
@@ -94,6 +119,7 @@ async def chat(req: ChatRequest, catalog: Catalog = Depends(get_catalog),
         log.info("answer_id=%s products=%s sources=%d latency_ms=%d q=%r",
                  answer_id, products, len(citations), latency_ms, req.message[:200])
         yield sse("done", {"answer_id": answer_id, "products": products, "latency_ms": latency_ms,
-                           "status": result.status, "language": result.language})
+                           "status": result.status, "language": result.language,
+                           "gaps": result.gaps, "options": result.options})
 
     return StreamingResponse(stream(), media_type="text/event-stream", headers=SSE_HEADERS)

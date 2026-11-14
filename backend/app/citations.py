@@ -146,6 +146,7 @@ class CitationResolver:
             image_urls=[f.url for f in figures] if figures is not None
             else ([self.catalog.file_url(pid, img) for img in section.images] if section else []),
             figures=figures or [],
+            note=str(src["note"])[:1000] if src.get("note") else None,
         )
 
     def _figures(self, src: dict, pid: str | None) -> list[Figure] | None:

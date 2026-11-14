@@ -34,7 +34,7 @@ def evaluate(q: dict) -> dict:
         r = answer(q["q"], history=q.get("history"))
     except Exception as exc:  # noqa: BLE001
         return {"id": q["id"], "passed": False, "failed": [f"error: {exc}"], "result": None}
-    text = r["answer"].lower().replace(" ", " ")
+    text = " ".join([r["answer"], *r.get("gaps", [])]).lower().replace(" ", " ")
     cited = {s["product_id"] for s in r["sources"]}
     figures = [f["id"] for s in r["sources"] for f in s["figures"]]
     failed = []

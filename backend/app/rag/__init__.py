@@ -38,6 +38,8 @@ class RagResult:
     sources: list[dict] = field(default_factory=list)
     status: str | None = None       # answered | not_in_docs | needs_clarification, se il motore lo fornisce
     language: str | None = None     # lingua della risposta, se il motore la fornisce
+    gaps: list[str] = field(default_factory=list)     # parti della domanda che i manuali non coprono
+    options: list[str] = field(default_factory=list)  # scelte proposte quando status = needs_clarification
 
 
 def _first(d: dict, keys: tuple[str, ...]) -> Any:
@@ -83,7 +85,9 @@ def normalize_result(raw: Any) -> RagResult:
         sources = [sources]
     extra = raw if isinstance(raw, dict) else {}
     return RagResult(answer=str(answer or ""), sources=[normalize_source(s) for s in (sources or [])],
-                     status=extra.get("status") or None, language=extra.get("language") or None)
+                     status=extra.get("status") or None, language=extra.get("language") or None,
+                     gaps=[str(g) for g in extra.get("gaps") or [] if g],
+                     options=[str(o) for o in extra.get("options") or [] if o])
 
 
 def normalize_sources(raw: Any) -> list[dict]:

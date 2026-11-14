@@ -49,6 +49,7 @@ class Citation(BaseModel):
     pdf_url: str | None = None
     image_urls: list[str] = []
     figures: list[Figure] = []           # solo le figure scelte dal RAG, con la legenda
+    note: str | None = None              # come la risposta usa questa fonte (scritto dal modello)
 
 
 class HealthResponse(BaseModel):

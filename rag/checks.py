@@ -63,3 +63,8 @@ def unsupported_numbers(answer: str, evidence_text: str, question: str = "") -> 
         if raw not in missing:
             missing.append(raw)
     return missing
+
+
+def count_numbers(answer: str) -> int:
+    """How many numeric values the answer states (citation markers not counted)."""
+    return len(NUMBER_RE.findall(CITATION_RE.sub(" ", answer)))

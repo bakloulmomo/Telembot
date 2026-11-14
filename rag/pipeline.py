@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 import logging
 import time
+from typing import Callable
 
 from . import checks, store
 from .tools import TOOLS, Evidence, tool_schemas
@@ -28,7 +29,7 @@ ANSWER_SCHEMA = {
     "schema": {
         "type": "object",
         "additionalProperties": False,
-        "required": ["answer", "status", "language", "figure_ids"],
+        "required": ["answer", "status", "language", "figure_ids", "gaps", "options", "notes"],
         "properties": {
             "answer": {"type": "string",
                        "description": "The answer in the user's language, with [n] source markers. Markdown allowed."},
@@ -36,6 +37,14 @@ ANSWER_SCHEMA = {
             "language": {"type": "string", "description": "ISO 639-1 code of the answer's language, e.g. en, de, it."},
             "figure_ids": {"type": "array", "items": {"type": "string"},
                            "description": "Ids of figures to show with the answer, most useful first. Usually empty."},
+            "gaps": {"type": "array", "items": {"type": "string"},
+                     "description": "Parts of the question the manuals do not answer, one short sentence each."},
+            "options": {"type": "array", "items": {"type": "string"},
+                        "description": "Only with status needs_clarification: the choices offered to the user."},
+            "notes": {"type": "array", "items": {
+                "type": "object", "additionalProperties": False, "required": ["source", "note"],
+                "properties": {"source": {"type": "integer"}, "note": {"type": "string"}}},
+                "description": "One entry per cited source: how the answer uses it."},
         },
     },
 }
@@ -70,6 +79,9 @@ Users are technicians (exact values, procedures, troubleshooting) and non-techni
 - If the question does not name a model and the answer differs between similar models (for example CC1 and CC1 Pro,
   BellaBot and BellaBot Pro), give the answer for each model separately, or ask which one is meant.
 - If the manuals do not contain the answer, say so plainly and set status to "not_in_docs". Do not guess.
+- If they answer only part of the question, answer that part (status "answered") and put each part they do not
+  answer in gaps, one short sentence each, without numbers, for example "The manuals do not list prices.".
+  Do not repeat the gaps in the answer text.
   The manuals contain no prices, availability or delivery times. A product missing from a compatibility list
   is "not listed in the documentation", not "incompatible".
 - A recommendation must name the specification it is based on.
@@ -86,10 +98,17 @@ Text marked "Figure description (AI)" was written by an AI, not printed in the m
 When asked where a part is, give its number in the figure (and the view, if the manual names one). Do not describe
 its position in your own words ("at the front", "below the screen"): you cannot see the figure, the user can.
 
+# Notes on sources
+For every source number you cite, add one entry to notes: in one or two sentences, what the manual says there and
+how the answer uses it. Say so if the answer's wording is stronger, weaker or more general than the manual's.
+Write the notes in the language of the answer. Never invent manual text.
+
 # Status
 - "answered": the manuals answer the question.
 - "not_in_docs": they do not.
-- "needs_clarification": you need to know which product or model is meant; ask one short question."""
+- "needs_clarification": you need to know which product or model is meant; ask one short question, and put
+  2 to 5 short choices in options (product names, plus a choice like "Compare both" when that makes sense).
+  Otherwise options is empty."""
 
 
 def _chat(messages: list[dict], tools: list[dict] | None, must_use_tool: bool = False):
@@ -115,14 +134,23 @@ def _run_tool(evidence: Evidence, conn, name: str, raw_args: str) -> str:
 
 
 def answer(question: str, history: list[dict] | None = None, lang: str | None = None,
-           product_ids: list[str] | None = None) -> dict:
+           product_ids: list[str] | None = None, progress: Callable[[dict], None] | None = None) -> dict:
     """Answer one question.
 
     history: earlier turns as [{"role": "user" | "assistant", "content": "..."}].
     lang: force the answer language (en, de, it, ...); None = language of the question.
     product_ids: products chosen in the interface; None = found from the question.
+    progress: called with {"step": "search" | "read" | "check", "detail": "..."} as the work advances.
     """
     started = time.perf_counter()
+
+    def emit(step: str, detail: str) -> None:
+        if progress:
+            try:
+                progress({"step": step, "detail": detail})
+            except Exception:  # noqa: BLE001  a broken listener must not break the answer
+                log.exception("progress callback failed")
+
     evidence = Evidence()
     catalog = store.products()
 
@@ -158,11 +186,16 @@ def answer(question: str, history: list[dict] | None = None, lang: str | None = 
             messages.append({"role": "assistant", "content": message.content,
                              "tool_calls": [c.model_dump() for c in message.tool_calls]})
             for call in message.tool_calls:
+                emit("search", _describe_call(call.function.name, call.function.arguments))
                 result = _run_tool(evidence, conn, call.function.name, call.function.arguments)
                 tool_calls_log.append({"tool": call.function.name, "args": call.function.arguments})
                 messages.append({"role": "tool", "tool_call_id": call.id, "content": result})
+            emit("read", _describe_evidence(evidence))
 
         result = _parse(message.content)
+        n_values = checks.count_numbers(result["answer"])
+        emit("check", f"Checking {n_values} value{'s' if n_values != 1 else ''} against the manual pages"
+             if n_values else "Checking the answer against the manual pages")
 
         # Check: numbers in the answer must come from the evidence. One retry.
         missing = checks.unsupported_numbers(result["answer"], evidence.text(), question)
@@ -176,17 +209,65 @@ def answer(question: str, history: list[dict] | None = None, lang: str | None = 
             still = checks.unsupported_numbers(retry["answer"], evidence.text(), question)
             if len(still) < len(missing):
                 result, missing = retry, still
+        if n_values and not missing:
+            emit("check", f"All {n_values} value{'s' if n_values != 1 else ''} found in the manuals")
+        elif missing:
+            emit("check", f"{len(missing)} value{'s' if len(missing) != 1 else ''} not found in the manuals")
 
     return _finish(result, evidence, missing, tool_calls_log, started)
+
+
+def _manual_names(product_ids) -> str:
+    catalog = store.products()
+    names = [catalog[p].name for p in product_ids or [] if p in catalog]
+    if not names:
+        return ""
+    if len(names) == 1:
+        return f"{names[0]} User Manual"
+    return ", ".join(names[:-1]) + f" and {names[-1]} manuals"
+
+
+def _describe_call(name: str, raw_args: str) -> str:
+    """One line for the interface about what a tool call is doing."""
+    try:
+        args = json.loads(raw_args or "{}")
+    except json.JSONDecodeError:
+        args = {}
+    catalog = store.products()
+    if name == "search_manuals":
+        names = _manual_names(args.get("product_ids"))
+        return f"Now reading: {names}" if names else f"Searching all {len(catalog)} manuals"
+    if name == "get_specs":
+        names = [catalog[p].name for p in args.get("product_ids") or [] if p in catalog]
+        return "Now reading: the specifications of " + (", ".join(names) or "the products")
+    if name == "find_products":
+        param = store.PARAM_BY_KEY.get(args.get("parameter"), {}).get("labels", {}).get("en", "a specification")
+        scope = args.get("family") or args.get("kind") or "robot"
+        return f"Comparing {param.lower()} across every {scope} manual"
+    return "Searching the manuals"
+
+
+def _describe_evidence(evidence: Evidence) -> str:
+    products = list(dict.fromkeys(s.product_id for s in evidence.sources))
+    sections = len(evidence.sources)
+    if not sections:
+        return "No matching pages"
+    manuals = _manual_names(products) if len(products) <= 2 else f"{len(products)} manuals"
+    return f"{sections} section{'s' if sections != 1 else ''} from the {manuals}"
 
 
 def _parse(content: str | None) -> dict:
     try:
         data = json.loads(content or "")
         return {"answer": str(data["answer"]), "status": data["status"], "language": data.get("language", "en"),
-                "figure_ids": list(data.get("figure_ids") or [])}
-    except (json.JSONDecodeError, KeyError, TypeError):
-        return {"answer": content or "", "status": "answered", "language": "en", "figure_ids": []}
+                "figure_ids": list(data.get("figure_ids") or []),
+                "gaps": [str(g) for g in data.get("gaps") or [] if str(g).strip()],
+                "options": [str(o) for o in data.get("options") or [] if str(o).strip()],
+                "notes": {int(n["source"]): str(n["note"]) for n in data.get("notes") or []
+                          if isinstance(n, dict) and str(n.get("source", "")).isdigit()}}
+    except (json.JSONDecodeError, KeyError, TypeError, ValueError):
+        return {"answer": content or "", "status": "answered", "language": "en", "figure_ids": [],
+                "gaps": [], "options": [], "notes": {}}
 
 
 def _finish(result: dict, evidence: Evidence, unsupported: list[str], tool_calls: list[dict], started: float) -> dict:
@@ -220,6 +301,7 @@ def _finish(result: dict, evidence: Evidence, unsupported: list[str], tool_calls
             "score": s.score,
             "figures": [{"id": f["id"], "path": f["path"], "caption": f["caption"], "labels": f["labels"]}
                         for f in s.figures if f["id"] in figure_ids],
+            "note": checks.strip_tags(checks.renumber(result["notes"][old], mapping)) if old in result["notes"] else None,
         })
 
     status = result["status"]
@@ -229,6 +311,8 @@ def _finish(result: dict, evidence: Evidence, unsupported: list[str], tool_calls
         "answer": checks.strip_tags(checks.renumber(result["answer"], mapping)),
         "status": status,
         "language": result["language"],
+        "gaps": [checks.strip_tags(g) for g in result["gaps"]],
+        "options": result["options"][:5] if status == "needs_clarification" else [],
         "sources": sources,
         "debug": {
             "model": store.CHAT_MODEL,
