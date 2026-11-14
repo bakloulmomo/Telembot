@@ -1,9 +1,19 @@
+# Manuals: provided by the organisers, not committed (see ingest/README.md)
 data/*
 !data/.gitkeep
+
+# Python
 venv/
-.env
+.venv/
 __pycache__/
 *.pyc
-.DS_Store
-# Local test output
+.pytest_cache/
+
+# Secrets and local settings
+.env
+
+# Local output
 eval/last_run.json
+var/
+
+.DS_Store
