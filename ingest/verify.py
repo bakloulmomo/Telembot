@@ -126,7 +126,40 @@ def main() -> None:
             # texts repeated word for word in several manuals share the top spot, so compare the score, not the id
             check(f"stored vector belongs to its text: {pid}/{lang}/{key}", sim > 0.999, f"similarity {sim:.4f}")
 
-    print("--- 5. Summary")
+    print("--- 5. Specs")
+    import load_specs
+    overrides = json.loads((db.PRODUCTS_FILE.parent / "spec_overrides.json").read_text(encoding="utf-8"))
+    stored = dict(q("SELECT id, specs FROM products"))
+    n_entries = n_reviewed = 0
+    for pid, _name, _kind, _langs, folder in products:
+        manual = parse_manual(db.DATA_DIR / folder / "en.md", "en")
+        section = load_specs.spec_section(manual)
+        fresh, notes = load_specs.build_specs(pid, manual, overrides.get(pid, {}))
+        check(f"{pid}: specs in the database equal a fresh parse of the manual", stored[pid] == fresh and not notes,
+              notes, show_pass=False)
+        for key, entries in stored[pid].items():
+            for e in entries:
+                check(f"{pid}/{key}: value is printed in the manual", section is not None and e["raw"] in section.markdown,
+                      repr(e["raw"][:50]), show_pass=False)
+                if key == "_unmapped":
+                    continue
+                n_entries += 1
+                n_reviewed += bool(e["reviewed"])
+                if e["reviewed"] and "min" in e:
+                    check(f"{pid}/{key}: numbers are consistent", e["min"] <= e["max"] and bool(e.get("op")),
+                          e, show_pass=False)
+    if n_entries:
+        print(f"PASS  spec values are printed in the manuals  ({n_entries} entries, {n_reviewed} reviewed)"
+              if not failures else "")
+    else:
+        print("      no specs loaded yet (run ingest/load_specs.py)")
+    narrow = q("SELECT p.id FROM products p, jsonb_array_elements(p.specs -> 'min_passage_width') e "
+               "WHERE p.family = 'delivery' AND (e ->> 'reviewed')::bool AND (e ->> 'max')::numeric <= 60 ORDER BY 1")
+    if n_entries:
+        check("filter example: delivery robots that pass a 60 cm aisle", [r[0] for r in narrow] == ["kettybot", "kettybot-pro"],
+              [r[0] for r in narrow])
+
+    print("--- 6. Summary")
     for row in q("SELECT lang, count(*), count(embedding) FROM chunks GROUP BY lang ORDER BY lang"):
         print(f"      {row[0]}: {row[1]} sections, {row[2]} embedded")
     print("      kinds:", ", ".join(f"{k} {n}" for k, n in

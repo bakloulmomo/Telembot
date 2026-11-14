@@ -1,0 +1,81 @@
+{
+  "_comment": "Hand-written fixes for specification rows the parser cannot read. Per product: 'relabel' maps a printed label to a parameter; 'entries' replaces all entries of a parameter; 'skip_labels' keeps a row out of '_unmapped' because 'entries' already covers it. 'raw' must be text that appears word for word in the manual's specification section: the loader checks this.",
+
+  "flashbot": {
+    "skip_labels": ["Load capacity"],
+    "entries": {
+      "max_load": [
+        {"raw": "20 kg", "label": "Load capacity", "min": 20}
+      ],
+      "load_per_tray": [
+        {"raw": "10 kg per tray", "label": "Load capacity", "min": 10, "condition": "per tray"}
+      ],
+      "charging_time": [
+        {"raw": "4 h using the charging station", "label": "Charging time", "min": 4, "variant": "charging station", "condition": "from 0% to 100%"},
+        {"raw": "3.5 h using the charger", "label": "Charging time", "min": 3.5, "variant": "charger", "condition": "from 0% to 100%"}
+      ]
+    }
+  },
+
+  "kettybot": {
+    "entries": {
+      "tray_count": [
+        {"raw": "Two trays and one dish-return box", "label": "No. of trays", "min": 2, "unit": "", "condition": "plus one dish-return box"}
+      ]
+    }
+  },
+
+  "kettybot-pro": {
+    "entries": {
+      "tray_count": [
+        {"raw": "Two trays and one dish-return box", "label": "No. of trays", "min": 2, "unit": "", "condition": "plus one dish-return box"}
+      ]
+    }
+  },
+
+  "cc1": {
+    "_note": "The manual prints the battery life per cleaning mode under the label 'Cleaning capabilities'; the footnote under the table confirms it is battery life.",
+    "relabel": {"Cleaning capabilities": "battery_runtime"},
+    "skip_labels": ["Water tank capacity"],
+    "entries": {
+      "solution_tank": [
+        {"raw": "Solution tank: 15 L", "label": "Water tank capacity", "min": 15}
+      ],
+      "recovery_tank": [
+        {"raw": "Recovery tank: 15 L", "label": "Water tank capacity", "min": 15}
+      ]
+    }
+  },
+
+  "cc1-pro": {
+    "skip_labels": ["Water tank capacity (scrubbing)", "Spot Cleaning"],
+    "entries": {
+      "solution_tank": [
+        {"raw": "Solution tank: 15 L", "label": "Water tank capacity (scrubbing)", "min": 15}
+      ],
+      "recovery_tank": [
+        {"raw": "Recovery tank: 15 L", "label": "Water tank capacity (scrubbing)", "min": 15}
+      ],
+      "productivity": [
+        {"raw": "700-1000 m 2 /h", "label": "Cover Cleaning", "min": 700, "max": 1000, "variant": "Cover cleaning"},
+        {"raw": "1500-3000 m 2 /h", "label": "Spot Cleaning", "min": 1500, "max": 3000, "variant": "Spot cleaning"}
+      ],
+      "dustbin_capacity": [
+        {"raw": "2.5L (Default)", "label": "Dustbin capacity (vacuuming)", "min": 2.5, "variant": "Default"},
+        {"raw": "6L (Expand)", "label": "Dustbin capacity (vacuuming)", "min": 6, "variant": "Expand"}
+      ]
+    }
+  },
+
+  "cc1-dock-main": {
+    "_note": "The specification table of this manual is broken in the Markdown (label and value share one cell). Values copied by hand.",
+    "entries": {
+      "weight": [
+        {"raw": "23 kg", "label": "Body weight", "min": 23}
+      ],
+      "dimensions": [
+        {"raw": "618 x 374 x 546 mm", "label": "Body size (L, W, H)", "values": [618, 374, 546]}
+      ]
+    }
+  }
+}
