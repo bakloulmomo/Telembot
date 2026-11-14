@@ -143,6 +143,7 @@ function finish(bubble, id, text, citations, done) {
   let html = "";
   if (done.status === "not_in_docs") html += `<div class="badge">Not in the documentation</div>`;
   if (done.status === "needs_clarification") html += `<div class="badge">Needs clarification</div>`;
+  if (done.hit_max_rounds) html += `<div class="badge">Search limit reached — ask a follow-up for remaining details</div>`;
   if (html) bubble.insertAdjacentHTML("afterbegin", html);
 
   const figures = citations.flatMap(c => (c.figures || []).map(f => ({...f, n: c.n, label: c.label})));

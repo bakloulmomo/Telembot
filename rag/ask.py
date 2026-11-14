@@ -35,8 +35,9 @@ def main() -> None:
             print(f"  {c['tool']} {c['args']}")
         audit = result.get("number_audit") or {}
         verified = [f"{v['value']}->{v['sources']}" for v in audit.get("verified", [])]
-        print(f"evidence sources: {d['evidence_sources']} · verified numbers: {verified} "
-              f"· unverified numbers: {audit.get('unverified', [])} · dropped figures: {d['dropped_figure_ids']}")
+        print(f"evidence sources: {d['evidence_sources']} · hit max rounds: {d['hit_max_rounds']} "
+              f"· verified numbers: {verified} · unverified numbers: {audit.get('unverified', [])} "
+              f"· dropped figures: {d['dropped_figure_ids']}")
 
 
 if __name__ == "__main__":

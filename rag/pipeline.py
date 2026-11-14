@@ -149,8 +149,16 @@ def answer(question: str, history: list[dict] | None = None, lang: str | None = 
     tools = tool_schemas()
     with store.connect() as conn:
         message = None
+        hit_max_rounds = False
         for round_no in range(MAX_TOOL_ROUNDS + 1):
             last_round = round_no == MAX_TOOL_ROUNDS
+            if last_round:
+                hit_max_rounds = True
+                messages.append({
+                    "role": "user",
+                    "content": "Tool limit reached. Answer only from the evidence gathered so far, "
+                               "and if any part of the question could not be looked up, tell the user to ask a follow-up for the rest.",
+                })
             # First round: always look in the manuals, never answer from memory or from the chat history.
             message = _chat(messages, None if last_round else tools, must_use_tool=round_no == 0)
             if not message.tool_calls:
@@ -164,7 +172,7 @@ def answer(question: str, history: list[dict] | None = None, lang: str | None = 
 
         result = _parse(message.content)
 
-    return _finish(result, evidence, question, tool_calls_log, started)
+    return _finish(result, evidence, question, tool_calls_log, hit_max_rounds, started)
 
 
 def _parse(content: str | None) -> dict:
@@ -176,7 +184,8 @@ def _parse(content: str | None) -> dict:
         return {"answer": content or "", "status": "answered", "language": "en", "figure_ids": []}
 
 
-def _finish(result: dict, evidence: Evidence, question: str, tool_calls: list[dict], started: float) -> dict:
+def _finish(result: dict, evidence: Evidence, question: str, tool_calls: list[dict],
+            hit_max_rounds: bool, started: float) -> dict:
     by_n = {s.n: s for s in evidence.sources}
     cited = [n for n in checks.cited_numbers(result["answer"]) if n in by_n]
     if result["status"] == "not_in_docs":
@@ -227,6 +236,7 @@ def _finish(result: dict, evidence: Evidence, question: str, tool_calls: list[di
             "model": store.CHAT_MODEL,
             "tool_calls": tool_calls,
             "evidence_sources": len(evidence.sources),
+            "hit_max_rounds": hit_max_rounds,
             "dropped_figure_ids": [f for f in result["figure_ids"] if f not in evidence.figure_ids],
             "seconds": round(time.perf_counter() - started, 1),
         },

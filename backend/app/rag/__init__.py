@@ -39,6 +39,7 @@ class RagResult:
     status: str | None = None       # answered | not_in_docs | needs_clarification, se il motore lo fornisce
     language: str | None = None     # lingua della risposta, se il motore la fornisce
     number_audit: dict | None = None
+    hit_max_rounds: bool = False
 
 
 def _first(d: dict, keys: tuple[str, ...]) -> Any:
@@ -85,7 +86,8 @@ def normalize_result(raw: Any) -> RagResult:
     extra = raw if isinstance(raw, dict) else {}
     return RagResult(answer=str(answer or ""), sources=[normalize_source(s) for s in (sources or [])],
                      status=extra.get("status") or None, language=extra.get("language") or None,
-                     number_audit=extra.get("number_audit") or None)
+                     number_audit=extra.get("number_audit") or None,
+                     hit_max_rounds=bool((extra.get("debug") or {}).get("hit_max_rounds")))
 
 
 def normalize_sources(raw: Any) -> list[dict]:
