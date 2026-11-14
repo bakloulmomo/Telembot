@@ -1,0 +1,62 @@
+[
+  {"id": "spec-1", "type": "spec lookup", "q": "What is the battery capacity of the BellaBot Pro?",
+   "products": ["bellabot-pro"], "contains": [["25.6"]]},
+  {"id": "spec-2", "type": "spec lookup", "q": "How long does the T300 battery last?",
+   "products": ["t300"], "contains": [["12 h"], ["6 h"]]},
+  {"id": "spec-3", "type": "spec lookup", "q": "What is the IP rating of the CC1 Pro?",
+   "products": ["cc1-pro"], "contains": [["IPX4"]]},
+  {"id": "spec-4", "type": "spec lookup", "q": "What is the maximum load of the T300?",
+   "products": ["t300"], "contains": [["300 kg"]]},
+
+  {"id": "cmp-1", "type": "near-identical products", "q": "What is the difference in battery life between BellaBot and BellaBot Pro?",
+   "products": ["bellabot", "bellabot-pro"], "contains": [["12–24", "12-24", "12 to 24"], ["11 h"]]},
+  {"id": "cmp-2", "type": "comparison", "q": "Compare the minimum passage width of the KettyBot Pro and the SwiftBot.",
+   "products": ["kettybot-pro", "swiftbot"], "contains": [["55 cm"], ["80 cm"]]},
+
+  {"id": "rec-1", "type": "filter", "q": "Which delivery robot can pass through a 60 cm wide aisle?",
+   "products": ["kettybot", "kettybot-pro"], "contains": [["KettyBot"], ["55 cm"]]},
+  {"id": "rec-2", "type": "filter", "q": "Which robot can carry the heaviest load?",
+   "products": ["t300"], "contains": [["T300"], ["300 kg"]]},
+  {"id": "rec-3", "type": "filter", "q": "Which robot needs the narrowest passage?",
+   "products": ["kettybot"], "contains": [["KettyBot"], ["55 cm"]]},
+
+  {"id": "trb-1", "type": "troubleshooting", "q": "The Charging Station Light indicator is flashing yellow and the robot does not charge. What should I do?",
+   "products": ["charging-station-light"], "contains": [["adapter"]]},
+  {"id": "how-1", "type": "how-to", "q": "How do I power off the BellaBot Pro?",
+   "products": ["bellabot-pro"], "contains": [["3 seconds"]]},
+
+  {"id": "acc-1", "type": "compatibility", "q": "Which power adapter is recommended for the T300 on the Charging Station Light?",
+   "products": ["charging-station-light"], "contains": [["15 A"]]},
+  {"id": "acc-2", "type": "compatibility, asked from the robot", "q": "Which charging station adapter should I use for the KettyBot?",
+   "products": ["charging-station-light"], "contains": [["8 A"]]},
+
+  {"id": "fig-1", "type": "figure expected", "q": "Where is the emergency stop on the BellaBot Pro?",
+   "products": ["bellabot-pro"], "contains": [["20"]], "figure": "bellabot-pro:en:p003R-fig01"},
+  {"id": "fig-2", "type": "figure expected", "q": "Where is the lidar on the T300?",
+   "products": ["t300"], "contains": [["5"]], "figure": "t300:en:p003R-fig01"},
+  {"id": "fig-3", "type": "figure expected", "q": "How do I clean the recovery tank of the SH1?",
+   "products": ["sh1"], "figure": "sh1:en:"},
+  {"id": "fig-4", "type": "no figure expected", "q": "What is the charging time of the HolaBot?",
+   "products": ["holabot"], "contains": [["4.5 h"]], "no_figures": true},
+
+  {"id": "de-1", "type": "German", "q": "Welcher Lieferroboter passt durch einen 60 cm breiten Gang?",
+   "products": ["kettybot", "kettybot-pro"], "contains": [["KettyBot"], ["55 cm"]], "language": "de"},
+  {"id": "de-2", "type": "German", "q": "Wie hoch ist die Akkukapazität des BellaBot Pro?",
+   "products": ["bellabot-pro"], "contains": [["25,6", "25.6"]], "language": "de", "source_lang": "de"},
+  {"id": "it-1", "type": "Italian", "q": "Quanto pesa il CC1?",
+   "products": ["cc1"], "contains": [["75 kg"]], "language": "it"},
+  {"id": "it-2", "type": "Italian, manual has no Italian version", "q": "Quanto dura la batteria del FlashBot?",
+   "products": ["flashbot"], "contains": [["9 h", "9 ore"]], "language": "it"},
+  {"id": "fr-1", "type": "other language", "q": "Quelle est la charge maximale du T300 ?",
+   "products": ["t300"], "contains": [["300 kg"]], "language": "fr"},
+
+  {"id": "hist-1", "type": "follow-up", "q": "And how long does it take to charge?",
+   "history": [{"role": "user", "content": "What is the maximum load of the T300?"},
+               {"role": "assistant", "content": "The T300 can carry up to 300 kg. [1]"}],
+   "products": ["t300"], "contains": [["2 h"]]},
+
+  {"id": "none-1", "type": "not in the documentation", "q": "How much does the CC1 cost?",
+   "status": ["not_in_docs"]},
+  {"id": "none-2", "type": "not in the documentation", "q": "Is the BellaBot compatible with the Charging Station Light?",
+   "status": ["not_in_docs", "answered"], "contains": [["not listed", "does not list", "not mention", "no information", "not state", "not include", "not in the"]]}
+]
