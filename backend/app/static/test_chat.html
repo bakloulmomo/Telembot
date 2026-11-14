@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Telembot · test chat</title>
+<style>
+  :root { --bg:#f6f7f9; --card:#fff; --text:#1c2430; --muted:#6a7483; --line:#dde2e9; --accent:#0b6bcb; --warn:#9a5b00; --warn-bg:#fff4dc; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 860px; margin: 0 auto; padding: 24px 16px 140px; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .note { color: var(--muted); font-size: 14px; margin: 0 0 16px; }
+  .chips { display:flex; flex-wrap:wrap; gap:8px; margin-bottom: 24px; }
+  .chips button { border:1px solid var(--line); background:var(--card); border-radius:16px; padding:6px 12px; font:inherit; font-size:14px; cursor:pointer; color:var(--text); }
+  .chips button:hover { border-color: var(--accent); }
+  .msg { margin: 16px 0; }
+  .msg.user { text-align: right; }
+  .msg.user .bubble { display:inline-block; background:var(--accent); color:#fff; border-radius:16px 16px 4px 16px; padding:8px 14px; max-width: 80%; text-align:left; }
+  .msg.bot .bubble { background:var(--card); border:1px solid var(--line); border-radius:4px 16px 16px 16px; padding:16px; }
+  .answer { white-space: pre-wrap; overflow-wrap: anywhere; }
+  .cite { display:inline-block; min-width: 20px; padding:0 5px; margin:0 1px; border-radius:10px; background:#e6f0fb; color:var(--accent); font-size:12px; font-weight:600; text-align:center; text-decoration:none; }
+  .badge { display:inline-block; font-size:12px; font-weight:600; padding:2px 8px; border-radius:10px; margin-bottom:8px; background:var(--warn-bg); color:var(--warn); }
+  .figures { display:grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap:16px; margin-top:16px; }
+  figure { margin:0; border:1px solid var(--line); border-radius:8px; padding:12px; background:#fff; }
+  figure img { max-width:100%; height:auto; display:block; margin:0 auto; }
+  figcaption { font-size:13px; color:var(--muted); margin-top:8px; }
+  .labels { columns: 2; font-size:13px; margin:8px 0 0; padding:0; list-style:none; }
+  .labels b { display:inline-block; min-width: 22px; }
+  .sources { margin-top:16px; border-top:1px solid var(--line); padding-top:8px; font-size:14px; }
+  .sources h2 { font-size:13px; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); margin:8px 0; }
+  .source { display:flex; gap:8px; align-items:baseline; padding:4px 0; }
+  .source a { color: var(--accent); }
+  .meta { color: var(--muted); font-size:12px; margin-top:8px; }
+  form { position:fixed; left:0; right:0; bottom:0; background:var(--bg); border-top:1px solid var(--line); padding:16px; }
+  form div { max-width: 860px; margin:0 auto; display:flex; gap:8px; }
+  input[type=text] { flex:1; font:inherit; padding:12px 14px; border:1px solid var(--line); border-radius:8px; }
+  button.send { font:inherit; font-weight:600; padding:12px 20px; border:0; border-radius:8px; background:var(--accent); color:#fff; cursor:pointer; }
+  button.send:disabled { opacity:.5; cursor:default; }
+  .error { color:#b3261e; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Telembot · test chat</h1>
+  <p class="note">Developer page for trying the RAG engine. Ask in any language. This is not the final interface.</p>
+  <div class="chips" id="chips"></div>
+  <div id="log"></div>
+</main>
+<form id="form">
+  <div>
+    <input type="text" id="q" placeholder="Ask about a PUDU robot or accessory" autocomplete="off" autofocus>
+    <button class="send" id="send">Ask</button>
+    <button class="send" type="button" id="reset" style="background:#fff;color:var(--text);border:1px solid var(--line)">New chat</button>
+  </div>
+</form>
+<script>
+const EXAMPLES = [
+  "Where is the emergency stop on the BellaBot Pro?",
+  "Where is the lidar on the T300?",
+  "How do I clean the recovery tank of the SH1?",
+  "Which delivery robot can pass through a 60 cm wide aisle?",
+  "The Charging Station Light is flashing yellow and does not charge.",
+  "Which adapter should I use for the KettyBot?",
+  "Welcher Roboter kann die schwerste Last tragen?",
+  "Quanto pesa il CC1?",
+  "How much does the CC1 cost?"
+];
+const log = document.getElementById("log"), form = document.getElementById("form"),
+      input = document.getElementById("q"), send = document.getElementById("send");
+let history = [];
+
+const esc = s => s.replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+function renderAnswer(text, id) {
+  return esc(text)
+    .replace(/\*\*(.+?)\*\*/g, "<b>$1</b>")
+    .replace(/\[(\d+)\]/g, (m, n) => `<a class="cite" href="#${id}-s${n}">${n}</a>`);
+}
+function add(cls, html) {
+  const el = document.createElement("div");
+  el.className = "msg " + cls;
+  el.innerHTML = `<div class="bubble">${html}</div>`;
+  log.appendChild(el);
+  el.scrollIntoView({behavior: "smooth", block: "end"});
+  return el.firstChild;
+}
+
+async function ask(question) {
+  add("user", esc(question));
+  const id = "a" + Date.now();
+  const bubble = add("bot", `<div class="answer">Searching the manuals…</div>`);
+  const answerEl = bubble.querySelector(".answer");
+  send.disabled = true;
+  let text = "", citations = [];
+  try {
+    const res = await fetch("/api/chat", {method: "POST", headers: {"Content-Type": "application/json"},
+                                         body: JSON.stringify({message: question, history, lang: "auto"})});
+    if (!res.ok) throw new Error("HTTP " + res.status + " " + await res.text());
+    const reader = res.body.getReader(), decoder = new TextDecoder();
+    let buffer = "";
+    for (;;) {
+      const {value, done} = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, {stream: true});
+      let cut;
+      while ((cut = buffer.indexOf("\n\n")) >= 0) {
+        const block = buffer.slice(0, cut); buffer = buffer.slice(cut + 2);
+        const event = (block.match(/^event: (.*)$/m) || [])[1];
+        const data = JSON.parse((block.match(/^data: (.*)$/m) || [, "{}"])[1]);
+        if (event === "sources") citations = data.citations;
+        else if (event === "token") { text += data.text; answerEl.innerHTML = renderAnswer(text, id); }
+        else if (event === "error") { answerEl.innerHTML = `<span class="error">${esc(data.message)}</span>`; }
+        else if (event === "done") finish(bubble, id, citations, data);
+      }
+    }
+    history.push({role: "user", content: question}, {role: "assistant", content: text});
+    history = history.slice(-8);
+  } catch (err) {
+    answerEl.innerHTML = `<span class="error">${esc(String(err))}</span>`;
+  }
+  send.disabled = false; input.focus();
+}
+
+function finish(bubble, id, citations, done) {
+  let html = "";
+  if (done.status === "not_in_docs") html += `<div class="badge">Not in the documentation</div>`;
+  if (done.status === "needs_clarification") html += `<div class="badge">Needs clarification</div>`;
+  if (html) bubble.insertAdjacentHTML("afterbegin", html);
+
+  const figures = citations.flatMap(c => (c.figures || []).map(f => ({...f, n: c.n, label: c.label})));
+  if (figures.length) {
+    bubble.insertAdjacentHTML("beforeend", `<div class="figures">` + figures.map(f => `
+      <figure>
+        <a href="${esc(f.url)}" target="_blank"><img src="${esc(f.url)}" alt="${esc(f.caption || "Figure")}"></a>
+        <figcaption>${esc(f.label)} <a class="cite" href="#${id}-s${f.n}">${f.n}</a></figcaption>
+        ${f.labels.length ? `<ul class="labels">` + f.labels.map(l => `<li><b>${esc(l.n || "•")}</b> ${esc(l.text)}</li>`).join("") + `</ul>` : ""}
+      </figure>`).join("") + `</div>`);
+  }
+  if (citations.length) {
+    bubble.insertAdjacentHTML("beforeend", `<div class="sources"><h2>Sources</h2>` + citations.map(c => `
+      <div class="source" id="${id}-s${c.n}"><span class="cite">${c.n}</span>
+        <span>${esc(c.label)}${c.page ? " · page " + c.page : ""}${c.lang ? " · " + c.lang.toUpperCase() : ""}
+        ${c.pdf_url ? ` · <a href="${esc(c.pdf_url)}" target="_blank">open PDF page</a>` : ""}</span></div>`).join("") + `</div>`);
+  }
+  bubble.insertAdjacentHTML("beforeend",
+    `<div class="meta">${(done.latency_ms / 1000).toFixed(1)} s · status: ${esc(done.status || "–")} · language: ${esc(done.language || "–")}</div>`);
+}
+
+form.addEventListener("submit", e => { e.preventDefault(); const q = input.value.trim(); if (q && !send.disabled) { input.value = ""; ask(q); } });
+document.getElementById("reset").addEventListener("click", () => { history = []; log.innerHTML = ""; input.focus(); });
+const chips = document.getElementById("chips");
+EXAMPLES.forEach(q => { const b = document.createElement("button"); b.textContent = q; b.onclick = () => { if (!send.disabled) ask(q); }; chips.appendChild(b); });
+</script>
+</body>
+</html>

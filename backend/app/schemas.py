@@ -20,6 +20,19 @@ class ChatRequest(BaseModel):
     product_ids: list[str] = []          # filtro opzionale scelto nell'interfaccia
 
 
+class FigureLabel(BaseModel):
+    n: str | None = None                 # numero del richiamo nella figura, es. "20"
+    text: str
+
+
+class Figure(BaseModel):
+    """Una figura del manuale scelta dal motore RAG per questa risposta."""
+    id: str | None = None
+    url: str
+    caption: str | None = None
+    labels: list[FigureLabel] = []       # legenda stampata nel PDF
+
+
 class Citation(BaseModel):
     """Una fonte della risposta, già collegata al manuale quando è possibile."""
     n: int                               # numero usato nel testo: [1], [2] …
@@ -35,6 +48,7 @@ class Citation(BaseModel):
     source_url: str | None = None        # /api/sources/… se la sezione è stata riconosciuta
     pdf_url: str | None = None
     image_urls: list[str] = []
+    figures: list[Figure] = []           # solo le figure scelte dal RAG, con la legenda
 
 
 class HealthResponse(BaseModel):

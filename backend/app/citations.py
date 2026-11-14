@@ -16,7 +16,7 @@ from pathlib import PurePath
 
 from app.catalog import Catalog
 from app.manuals import LANGS, Section
-from app.schemas import Citation
+from app.schemas import Citation, Figure, FigureLabel
 
 PATH_KEYS = ("source", "file", "file_path", "path", "filename", "file_name", "doc_id", "document", "url", "title")
 SECTION_KEYS = ("section_id", "section", "section_key", "section_number")
@@ -129,6 +129,7 @@ class CitationResolver:
         manual = data.manuals.get(lang or "en") if data else None
         page = src.get("page")
         label = self._label(src, data, section, n)
+        figures = self._figures(src, pid)
         return Citation(
             n=n,
             label=label,
@@ -142,8 +143,31 @@ class CitationResolver:
             score=self._score(src),
             source_url=self.catalog.source_url(pid, manual.lang, section.key) if section and manual else None,
             pdf_url=self.catalog.pdf_url(pid, manual, section.pdf_page if section else None) if manual else None,
-            image_urls=[self.catalog.file_url(pid, img) for img in section.images] if section else [],
+            image_urls=[f.url for f in figures] if figures is not None
+            else ([self.catalog.file_url(pid, img) for img in section.images] if section else []),
+            figures=figures or [],
         )
+
+    def _figures(self, src: dict, pid: str | None) -> list[Figure] | None:
+        """Figure scelte dal RAG per questa fonte.
+
+        None se il RAG non dice nulla sulle figure (in quel caso si mostrano tutte
+        le immagini della sezione, come prima); una lista, anche vuota, se lo dice.
+        """
+        raw = src.get("figures")
+        if raw is None or not isinstance(raw, list):
+            return None
+        out: list[Figure] = []
+        for item in raw:
+            path = item.get("path") if isinstance(item, dict) else item
+            if not pid or not isinstance(path, str) or not path.startswith("images/"):
+                continue
+            item = item if isinstance(item, dict) else {}
+            labels = [FigureLabel(n=(str(l["n"]) if l.get("n") is not None else None), text=str(l.get("text", "")))
+                      for l in item.get("labels") or [] if isinstance(l, dict)]
+            out.append(Figure(id=item.get("id"), url=self.catalog.file_url(pid, path),
+                              caption=item.get("caption"), labels=labels))
+        return out
 
     @staticmethod
     def _label(src: dict, data, section: Section | None, n: int) -> str:

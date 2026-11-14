@@ -3,7 +3,9 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import RedirectResponse
+from pathlib import Path
+
+from fastapi.responses import FileResponse, RedirectResponse
 
 from app.catalog import Catalog
 from app.citations import CitationResolver
@@ -46,3 +48,9 @@ for module in (misc, products, sources, chat, files):
 @app.get("/", include_in_schema=False)
 def root():
     return RedirectResponse("/docs")
+
+
+@app.get("/test", include_in_schema=False)
+def test_chat():
+    """Pagina di prova per sviluppatori: chat con fonti e figure. Non è l'interfaccia finale."""
+    return FileResponse(Path(__file__).parent / "static" / "test_chat.html", media_type="text/html")

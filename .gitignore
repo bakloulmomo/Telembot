@@ -17,3 +17,6 @@ eval/last_run.json
 var/
 
 .DS_Store
+
+# Local tool settings
+.claude/

@@ -36,6 +36,8 @@ TEXT_KEYS = ("text", "page_content", "content", "chunk", "snippet")
 class RagResult:
     answer: str
     sources: list[dict] = field(default_factory=list)
+    status: str | None = None       # answered | not_in_docs | needs_clarification, se il motore lo fornisce
+    language: str | None = None     # lingua della risposta, se il motore la fornisce
 
 
 def _first(d: dict, keys: tuple[str, ...]) -> Any:
@@ -79,7 +81,9 @@ def normalize_result(raw: Any) -> RagResult:
         answer, sources = _first(d, ANSWER_KEYS), _first(d, SOURCES_KEYS)
     if isinstance(sources, (str, dict)):
         sources = [sources]
-    return RagResult(answer=str(answer or ""), sources=[normalize_source(s) for s in (sources or [])])
+    extra = raw if isinstance(raw, dict) else {}
+    return RagResult(answer=str(answer or ""), sources=[normalize_source(s) for s in (sources or [])],
+                     status=extra.get("status") or None, language=extra.get("language") or None)
 
 
 def normalize_sources(raw: Any) -> list[dict]:

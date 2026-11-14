@@ -40,7 +40,7 @@ Esempi pronti da eseguire: `api.http` (VS Code con l'estensione REST Client, opp
 ```
 event: sources   data: {"citations":[{"n":1,"product_id":"bellabot","section_id":"2.4","source_url":"/api/sources/bellabot/it/2.4", ...}]}
 event: token     data: {"text":"La capacità della batteria è 25,6 Ah [1]"}
-event: done      data: {"answer_id":"a_…","products":["bellabot"],"latency_ms":2140}
+event: done      data: {"answer_id":"a_…","products":["bellabot"],"latency_ms":2140,"status":"answered","language":"it"}
 event: error     data: {"code":"rag_timeout"|"rag_error","message":"…"}
 ```
 

@@ -192,6 +192,10 @@ def _parse(content: str | None) -> dict:
 def _finish(result: dict, evidence: Evidence, unsupported: list[str], tool_calls: list[dict], started: float) -> dict:
     by_n = {s.n: s for s in evidence.sources}
     cited = [n for n in checks.cited_numbers(result["answer"]) if n in by_n]
+    if result["status"] == "not_in_docs":
+        # Nothing in the manuals supports the answer, so there is nothing to cite:
+        # the sections the model looked at are not sources of "it is not there".
+        cited, result["figure_ids"] = [], []
 
     # Figures: only ids that are in the evidence. A figure's section becomes a source even if not cited in the text.
     figure_ids = [f for f in dict.fromkeys(result["figure_ids"]) if f in evidence.figure_ids][:MAX_FIGURES]

@@ -2,6 +2,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
@@ -25,6 +26,12 @@ class Settings(BaseSettings):
     stream_duration_s: float = 1.5       # durata massima dell'effetto "scrittura" nel frontend
 
     cors_origins: list[str] = ["http://localhost:5173", "http://127.0.0.1:5173"]
+
+    @field_validator("data_dir", "products_file", "feedback_file")
+    @classmethod
+    def _relative_to_backend(cls, value: Path) -> Path:
+        """Un percorso relativo nel file .env vale rispetto a backend/, da qualunque cartella si avvii il server."""
+        return value if value.is_absolute() else (BACKEND_DIR / value).resolve()
 
 
 @lru_cache
