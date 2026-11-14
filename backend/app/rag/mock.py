@@ -58,7 +58,7 @@ def detect_lang(text: str) -> str:
 
 
 _PRICE_RE = re.compile(r"\b(price|prices|cost|costs|prezz\w*|costa|costo|preis\w*|kost\w*)\b", re.I)
-_MD_RE = re.compile(r"(?m)^\s*(?:#{1,6}|[-*]|\d+\.)\s+|\||\*\*|^-{3,}$")   # simboli Markdown negli estratti
+_MD_RE = re.compile(r"(?m)^\s*(?:#{1,6}|[-*]|\d+\.)\s+|\||\*\*|:?-{3,}:?")   # simboli Markdown negli estratti
 _LABEL_RE = re.compile(r"^\s*[-*]\s+\*\*([^*]+)\*\*\s*(.*)$")
 _CAPTION_RE = re.compile(r"^>\s*\*[^*]+\*:?\s*(.*)$")
 

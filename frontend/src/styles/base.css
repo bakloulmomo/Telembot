@@ -1,84 +1,41 @@
-/* Token del design (figma-design/). Il designer cambia qui colori, font e misure. */
-:root {
-  --font: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-
-  --bg: #fdfdfc;            /* pagina */
-  --surface: #ffffff;       /* composer, pannello, schede */
-  --well: #f4f4f2;          /* sfondi grigi: pulsanti, riquadri, riga attiva */
-  --well-strong: #ececea;
-  --line: #e8e8e6;          /* bordi sottili */
-  --text: #111111;
-  --text-2: #555555;
-  --muted: #6b6b6b;
-  --faint: #a3a3a3;         /* passi in attesa, placeholder */
-  --ink: #0d0d0d;           /* pulsanti neri */
-
-  --blue: #1f5bd6;          /* in pausa: serve una risposta */
-  --blue-bg: #edf4fe;
-  --warn: #c2620a;          /* parti non verificate */
-  --warn-bg: #fff5e6;
-  --mark: #eef3c9;          /* passaggio evidenziato nel manuale */
-  --danger: #c4321f;
-
-  --column: 768px;          /* colonna della conversazione */
-  --panel: 520px;           /* pannello della fonte */
-  --radius-composer: 30px;
-  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-
-*,
-*::before,
-*::after { box-sizing: border-box; }
-
-html, body { height: 100%; }
-
+/* Base styles. All values come from tokens.css (a copy of ../../tokens/tokens.css). */
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; height: 100%; }
 body {
-  margin: 0;
-  background: var(--bg);
-  color: var(--text);
-  font-family: var(--font);
-  font-size: 16px;
-  line-height: 1.5;
+  background: var(--color-bg-page);
+  color: var(--color-text-primary);
+  font-family: var(--font-text);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
 }
-
 #app { height: 100%; }
+p, h1, h2, h3 { margin: 0; font-weight: inherit; }
+button {
+  font: inherit; color: inherit; background: none; border: 0; padding: 0; margin: 0;
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+button:focus-visible, textarea:focus-visible, input:focus-visible, .claim:focus-visible {
+  outline: none; box-shadow: var(--focus-ring);
+}
+textarea, input { font: inherit; color: inherit; background: none; border: 0; outline: none; resize: none; padding: 0; margin: 0; }
+textarea::placeholder, input::placeholder { color: var(--color-text-tertiary); opacity: 1; }
 
-button, input, textarea { font: inherit; color: inherit; }
-button { cursor: pointer; }
-img { max-width: 100%; display: block; }
-
-:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; border-radius: 6px; }
-
-.sr-only {
-  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
-  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+/* Squircle corners where the browser supports them (Figma uses 60% corner smoothing). */
+@supports (corner-shape: squircle) {
+  .squircle { corner-shape: squircle; }
 }
 
-/* pulsante rotondo grigio (chiudi, invio vuoto) */
+/* Reusable round icon button, 44 x 44 */
 .icon-btn {
+  width: 44px; height: 44px; flex: none;
   display: inline-flex; align-items: center; justify-content: center;
-  width: 44px; height: 44px; border: 0; border-radius: 50%;
-  background: var(--well); color: var(--text);
-  transition: background-color .18s ease, color .18s ease, transform .18s var(--ease);
+  border-radius: var(--radius-full);
 }
-.icon-btn:hover { background: var(--well-strong); }
-.icon-btn:active { transform: scale(.94); }
+.icon-btn--ghost { background: transparent; color: var(--color-text-secondary); }
+.icon-btn--surface { background: var(--color-bg-surface); color: var(--color-text-primary); }
+.icon-btn--inverse { background: var(--color-bg-inverse); color: var(--color-text-inverse); }
+.icon-btn--elevated { background: var(--color-bg-elevated); color: var(--color-text-tertiary); }
+.icon-btn--stop { background: var(--color-bg-highlight-subtle); }
 
-@keyframes spin { to { transform: rotate(360deg); } }
-@keyframes fade-up { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
-@keyframes pop { 0% { transform: scale(.4); opacity: 0; } 70% { transform: scale(1.12); opacity: 1; } 100% { transform: scale(1); } }
-@keyframes shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
-@keyframes pulse-ring { 0% { box-shadow: 0 0 0 0 rgb(196 50 31 / .35); } 100% { box-shadow: 0 0 0 10px rgb(196 50 31 / 0); } }
-@keyframes caret { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .35; transform: scale(.8); } }
-
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
-    animation-duration: .01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: .01ms !important;
-    scroll-behavior: auto !important;
-  }
-}
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }

@@ -1,0 +1,186 @@
+/* Telembot design tokens: exported from Figma NOI26, Sat 14 Nov 2026.
+   Source of truth: tokens.json in this folder. Do not edit values by hand.
+   The screens are designed in light mode only; dark values are provided but untested. */
+
+@import url("https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,400,0..1,0&display=block");
+
+:root {
+  /* ---------- primitives ---------- */
+  --neutral-0: #FFFFFF;
+  --neutral-10: #FFFFFD;
+  --neutral-25: #FEFEFC;
+  --neutral-50: #F9F9F7;
+  --neutral-100: #F6F6F3;
+  --neutral-200: #EFEFEB;
+  --neutral-300: #DDDDDA;
+  --neutral-400: #B5B7B2;
+  --neutral-500: #8E908B;
+  --neutral-600: #6B6D68;
+  --neutral-700: #4A4C48;
+  --neutral-800: #1E211E;
+  --neutral-900: #161816;
+  --neutral-950: #0E0F0E;
+  --lime-100: #F4FADB;   --lime-400: #D3F542;   --lime-700: #4E6300;
+  --green-100: #F3F9F4;  --green-500: #4CB86A;  --green-700: #2F8A4C;
+  --orange-100: #FFF4EE; --orange-500: #F2642B; --orange-700: #C9481A;
+  --amber-100: #FFF6E8;  --amber-500: #EB820A;  --amber-700: #A65B04;
+  --red-100: #FDF1EE;    --red-500: #C9452F;    --red-700: #A3361F;
+  --blue-100: #EEF4FD;   --blue-500: #3A86E8;   --blue-700: #1D5BB0;
+  --ink-5: rgba(14, 15, 14, 0.05);
+  --ink-8: rgba(14, 15, 14, 0.08);
+  --ink-10: rgba(14, 15, 14, 0.10);
+  --ink-20: rgba(14, 15, 14, 0.20);
+  --ink-32: rgba(14, 15, 14, 0.32);
+  --ink-40: rgba(14, 15, 14, 0.40);
+  --ink-70: rgba(14, 15, 14, 0.70);
+  --white-12: rgba(255, 255, 255, 0.12);
+  --white-72: rgba(255, 255, 255, 0.72);
+
+  /* ---------- semantic colors (light) ---------- */
+  --color-bg-page: var(--neutral-25);
+  --color-bg-canvas: var(--neutral-0);
+  --color-bg-surface: var(--neutral-100);
+  --color-bg-surface-strong: var(--neutral-200);
+  --color-bg-elevated: var(--neutral-10);
+  --color-bg-inverse: var(--neutral-950);
+  --color-bg-glass: var(--white-72);
+  --color-bg-scrim: var(--ink-40);
+  --color-bg-accent: var(--lime-400);
+  --color-bg-accent-subtle: var(--lime-100);
+  --color-bg-success-subtle: var(--green-100);
+  --color-bg-warning-subtle: var(--amber-100);
+  --color-bg-error-subtle: var(--red-100);
+  --color-bg-info-subtle: var(--blue-100);
+  --color-bg-highlight-subtle: var(--orange-100);
+
+  --color-text-primary: var(--neutral-950);
+  --color-text-secondary: var(--neutral-600);
+  --color-text-tertiary: var(--neutral-500);
+  --color-text-disabled: var(--neutral-400);
+  --color-text-inverse: var(--neutral-0);
+  --color-text-on-accent: var(--neutral-950);
+  --color-text-success: var(--green-700);
+  --color-text-warning: var(--amber-700);
+  --color-text-error: var(--red-700);
+  --color-text-info: var(--blue-700);
+  --color-text-highlight: var(--orange-700);
+
+  --color-icon-success: var(--green-500);
+  --color-icon-warning: var(--amber-500);
+  --color-icon-highlight: var(--orange-500);
+
+  --color-border-subtle: var(--ink-8);
+  --color-border-default: var(--neutral-300);
+  --color-border-strong: var(--neutral-950);
+  --color-border-error: var(--red-500);
+
+  /* ---------- spacing ---------- */
+  --space-0: 0px;
+  --space-3xs: 2px;
+  --space-2xs: 4px;
+  --space-xs: 8px;
+  --space-sm: 12px;
+  --space-md: 16px;
+  --space-lg: 20px;
+  --space-xl: 24px;
+  --space-2xl: 30px;
+
+  /* ---------- radius (Figma uses 60% corner smoothing on all of them) ---------- */
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --radius-xl: 22px;
+  --radius-2xl: 30px;
+  --radius-3xl: 42px;
+  --radius-4xl: 48px;
+  --radius-full: 999px;
+
+  /* ---------- typography ---------- */
+  --font-text: "Geist", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-icon: "Material Symbols Rounded";
+
+  /* ---------- effects ---------- */
+  --shadow-small: 0 1px 3px rgba(14, 15, 14, 0.08), 0 2px 8px rgba(14, 15, 14, 0.04);
+  --shadow-floating: 0 8px 40px rgba(0, 0, 0, 0.12);
+  --shadow-lifted: 0 18px 36px -10px rgba(13, 15, 13, 0.18);
+  --shadow-sheet: 0 -8px 40px rgba(0, 0, 0, 0.10);
+  --focus-ring: 0 0 0 3px rgba(58, 134, 232, 0.40);
+
+  /* ---------- layout ---------- */
+  --frame-width: 1440px;
+  --column-width: 768px;
+  --column-inset: 12px;
+  --top-bar-height: 84px;
+  --top-bar-padding-x: 40px;
+  --thread-top: 124px;
+  --bottom-gap: 40px;
+  --panel-width: 520px;
+}
+
+[data-theme="dark"] {
+  --color-bg-page: var(--neutral-950);
+  --color-bg-canvas: var(--neutral-950);
+  --color-bg-surface: var(--neutral-800);
+  --color-bg-surface-strong: var(--neutral-700);
+  --color-bg-elevated: var(--neutral-900);
+  --color-bg-inverse: var(--neutral-0);
+  --color-bg-glass: var(--white-12);
+  --color-bg-accent-subtle: var(--neutral-800);
+  --color-bg-success-subtle: var(--neutral-800);
+  --color-bg-warning-subtle: var(--neutral-800);
+  --color-bg-error-subtle: var(--neutral-800);
+  --color-bg-info-subtle: var(--neutral-800);
+  --color-bg-highlight-subtle: var(--neutral-800);
+  --color-text-primary: var(--neutral-0);
+  --color-text-secondary: var(--neutral-400);
+  --color-text-disabled: var(--neutral-700);
+  --color-text-inverse: var(--neutral-950);
+  --color-text-success: var(--green-500);
+  --color-text-warning: var(--amber-500);
+  --color-text-error: var(--red-500);
+  --color-text-info: var(--blue-500);
+  --color-text-highlight: var(--orange-500);
+  --color-border-subtle: var(--white-12);
+  --color-border-default: var(--neutral-700);
+  --color-border-strong: var(--neutral-0);
+}
+
+/* ---------- text styles: one class per Figma text style ---------- */
+.t-display          { font: 500 48px/50px var(--font-text); letter-spacing: -2.2px; }
+.t-title-large      { font: 500 34px/38px var(--font-text); letter-spacing: -1.2px; }
+.t-title-medium     { font: 500 28px/31px var(--font-text); letter-spacing: -0.9px; }
+.t-title-small      { font: 600 24px/29px var(--font-text); letter-spacing: -0.6px; }
+.t-headline         { font: 600 20px/25px var(--font-text); letter-spacing: -0.5px; }
+.t-body-large       { font: 400 20px/30px var(--font-text); letter-spacing: 0; }
+.t-body-strong      { font: 600 17px/22px var(--font-text); letter-spacing: -0.3px; }
+.t-body-regular     { font: 400 17px/24px var(--font-text); letter-spacing: -0.2px; }
+.t-callout-strong   { font: 600 15px/20px var(--font-text); letter-spacing: 0; }
+.t-callout-medium   { font: 500 15px/20px var(--font-text); letter-spacing: 0; }
+.t-callout-regular  { font: 400 15px/20px var(--font-text); letter-spacing: 0; }
+.t-footnote-strong  { font: 600 13px/18px var(--font-text); letter-spacing: 0; }
+.t-footnote-medium  { font: 500 13px/18px var(--font-text); letter-spacing: 0; }
+.t-footnote-regular { font: 400 13px/18px var(--font-text); letter-spacing: 0; }
+.t-caption          { font: 500 12px/16px var(--font-text); letter-spacing: 0; }
+.t-overline         { font: 600 12px/16px var(--font-text); letter-spacing: 0.48px; text-transform: uppercase; }
+
+/* ---------- icons: Material Symbols Rounded, outlined (FILL 0) unless stated ---------- */
+.icon {
+  font-family: var(--font-icon);
+  font-weight: 400;
+  font-style: normal;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  white-space: nowrap;
+  direction: ltr;
+  font-feature-settings: "liga";
+  -webkit-font-smoothing: antialiased;
+  font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
+  user-select: none;
+}
+.icon-24 { font-size: 24px; width: 24px; height: 24px; }
+.icon-20 { font-size: 20px; width: 20px; height: 20px; font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 20; }
+.icon-16 { font-size: 16px; width: 16px; height: 16px; font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 20; }
+.icon-filled { font-variation-settings: "FILL" 1, "wght" 400, "GRAD" 0, "opsz" 24; }
