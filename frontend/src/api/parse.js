@@ -4,8 +4,10 @@
 // with the number after the claim: "hours. [1]".
 export function normalizeAnswer(text = '') {
   return text
+    .replace(/\s*\[(?!\d+\])[^\]\n]*\]/g, '')          // engine tags such as [FIGURE t300:it:p030R-fig01]
     .replace(/\*\*|__/g, '')
     .replace(/^\s*#{1,6}\s+/gm, '')
+    .replace(/^(\s*(?:[-*•]|\d+[.)])\s+.*?[^.!?:;\]])((?:\s*\[\d+\])*)\s*$/gm, '$1.$2')   // list item → sentence
     .replace(/^\s*(?:[-*•]|\d+[.)])\s+/gm, '')
     .replace(/((?:\s*\[\d+\])+)([.,;:!?]+)/g, '$2$1')
     .split(/\n\s*\n/)
@@ -39,7 +41,10 @@ export function parseAnswer(text = '') {
 // Lines are strings (bullets), [label, value] rows, or { type, text, cells } from the real manual sections.
 const STOP = new Set('the and for with that this from are was were has have can will not you your its into when then than also only should must may might been more such each which what where does'.split(' '))
 const lineText = (line) => (Array.isArray(line) ? line.join(' ') : typeof line === 'object' ? (line.text ?? line.cells?.join(' ') ?? '') : line)
-const words = (t) => (t.toLowerCase().match(/[a-z0-9.%–-]{3,}/g) || []).map((w) => w.replace(/[.,]$/, '')).filter((w) => !STOP.has(w))
+// "charges" and "Charging" share the stem "charg"; numbers stay whole
+const stem = (w) => (/^[a-z]{6,}$/.test(w) ? w.slice(0, 5) : w)
+const words = (t) => (t.toLowerCase().match(/[\p{L}0-9.%–-]{2,}/gu) || [])
+  .map((w) => w.replace(/[.,]$/, '')).filter((w) => w.length >= 3 || /\d/.test(w)).filter((w) => !STOP.has(w)).map(stem)
 
 export function guessCitedLines(lines, claimText) {
   if (!claimText || !lines?.length) return []
@@ -48,7 +53,8 @@ export function guessCitedLines(lines, claimText) {
   let bestScore = 0
   lines.forEach((line, i) => {
     if (line?.type === 'sub') return
-    const score = new Set(words(lineText(line)).filter((w) => claim.has(w))).size
+    // a value printed in the manual ("4.5") weighs as much as two words
+    const score = [...new Set(words(lineText(line)).filter((w) => claim.has(w)))].reduce((n, w) => n + (/\d/.test(w) ? 2 : 1), 0)
     if (score > bestScore) { bestScore = score; best = i }
   })
   return best >= 0 && bestScore >= 2 ? [best] : []

@@ -112,6 +112,13 @@ export function panelCitation(c, s) {
 }
 
 // ---------- comparison table (03c), when the engine sends none ----------
+// The design shows a few rows in plain words (DESIGN-SPEC 1.10), not the whole specification sheet.
+const COMPARE_ROWS = ['min_width', 'battery_life', 'charging_time', 'trays', 'tray_load', 'cleaning_width',
+  'water_tank', 'productivity', 'speed', 'battery_capacity', 'weight']
+const PLAIN_LABELS = { min_width: 'Narrowest aisle', battery_life: 'Runs on one charge', charging_time: 'Time to charge',
+  trays: 'Trays', tray_load: 'Load per tray' }
+const MAX_ROWS = 6
+
 export async function loadComparison(productIds, citations, lang = 'en') {
   const ids = [...new Set(productIds)].slice(0, 4)
   if (ids.length < 2) return null
@@ -120,6 +127,10 @@ export async function loadComparison(productIds, citations, lang = 'en') {
   return {
     products: data.products.map((p) => ({ id: p.id, name: p.name, n: sourceOf(p.id) })),
     recommended: [],
-    rows: data.rows.map((r) => ({ label: r.label, values: r.values })),
+    rows: data.rows
+      .filter((r) => COMPARE_ROWS.includes(r.key))
+      .sort((x, y) => COMPARE_ROWS.indexOf(x.key) - COMPARE_ROWS.indexOf(y.key))
+      .slice(0, MAX_ROWS)
+      .map((r) => ({ label: (lang === 'en' && PLAIN_LABELS[r.key]) || r.label, values: r.values })),
   }
 }

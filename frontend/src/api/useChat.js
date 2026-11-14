@@ -270,6 +270,8 @@ function onProgress(turn, { step, detail }, before) {
   else if (!before.length) turn.steps = [STEP.searching(detail), STEP.pendingRead(), STEP.pendingCheck()]
 }
 
+const simplify = (t) => t.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim()
+
 /** "2 match your question: BellaBot and BellaBot Pro" when the choices are products. */
 function matchSummary(options) {
   const names = new Set(state.products.map((p) => p.name.toLowerCase()))
@@ -332,8 +334,14 @@ async function onDone(turn, data, text, citations) {
     answer.comparison = await loadComparison(products, citations, lang).catch(() => null)
   }
   const built = buildAnswer(answer)
-  // plain answers: the first sentence is the headline when the engine sends no short answer (DATA.md)
-  if (style === 'plain' && !built.short_answer && built.paragraphs[0]?.length) {
+  // the engine sometimes also writes a gap in the answer text: show it once, in amber
+  const gapTexts = new Set(built.gaps.map((g) => simplify(g.text)))
+  built.paragraphs = built.paragraphs
+    .map((p) => p.filter((c) => c.ns.length || !gapTexts.has(simplify(c.text))))
+    .filter((p) => p.length)
+  // plain answers: the first sentence is the headline when the engine sends no short answer (DATA.md),
+  // if it is short enough to read as one
+  if (style === 'plain' && !built.short_answer && built.paragraphs[0]?.[0]?.text.length <= 140) {
     const head = built.paragraphs[0].shift()
     if (!built.paragraphs[0].length) built.paragraphs.shift()
     built.short_answer = { headline: head.text, ns: head.ns }
