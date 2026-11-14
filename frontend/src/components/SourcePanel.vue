@@ -88,7 +88,7 @@ const citedLines = computed(() => props.cited ?? guessCitedLines(c.value.snapsho
 
 <style scoped>
 .panel {
-  width: var(--panel-width); flex: none; height: 100%;
+  width: var(--panel-width); flex: none; height: 100vh;   /* window height: only .body scrolls (DESIGN-SPEC 1.11) */
   background: var(--color-bg-elevated);
   border-left: 1px solid var(--color-border-subtle);
   display: flex; flex-direction: column;
@@ -96,7 +96,7 @@ const citedLines = computed(() => props.cited ?? guessCitedLines(c.value.snapsho
 .header { height: 84px; flex: none; display: flex; align-items: center; gap: 12px; padding: 0 20px 0 32px; }
 .num { color: var(--color-text-primary); }
 .title { flex: 1; }
-.body { flex: 1; overflow-y: auto; padding: 4px 32px 32px; display: flex; flex-direction: column; gap: 24px; }
+.body { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 4px 32px 32px; display: flex; flex-direction: column; gap: 24px; }
 hr { border: 0; height: 1px; background: var(--color-border-subtle); margin: 0; }
 .doc { display: flex; flex-direction: column; gap: 12px; }
 .tree { color: var(--color-text-tertiary); white-space: pre; }
