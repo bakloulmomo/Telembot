@@ -1,24 +1,33 @@
 <script setup>
-import { onMounted, onBeforeUnmount } from 'vue'
+import { ref, onMounted, onBeforeUnmount } from 'vue'
 import Icon from './Icon.vue'
 import PromptBar from './PromptBar.vue'
+import { motionOn } from '../api/motion.js'
 const props = defineProps({ clarification: { type: Object, required: true } })
 const emit = defineEmits(['choose', 'stop'])
+// The picked option stays marked for 160 ms before the card closes: the user sees which one was taken.
+const chosen = ref(null)
+const choose = (label, i = null) => {
+  if (chosen.value !== null) return
+  chosen.value = i
+  setTimeout(() => emit('choose', label), i !== null && motionOn() ? 160 : 0)
+}
 // Keys 1, 2, 3 pick an option (when the focus is not in the text field).
 const onKey = (e) => {
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return
   const i = Number(e.key) - 1
   const opt = props.clarification.options[i]
-  if (opt) emit('choose', opt.label)
+  if (opt) choose(opt.label, i)
 }
 onMounted(() => window.addEventListener('keydown', onKey))
 onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
 </script>
 
 <template>
-  <section class="card squircle" aria-label="The answer needs your input">
+  <!-- view-transition-name "input-bar": the prompt bar grows into this card and shrinks back -->
+  <section class="card squircle" style="view-transition-name: input-bar" aria-label="The answer needs your input">
     <div class="header">
-      <div class="texts">
+      <div class="texts m-fade" style="--i: 2">
         <h2 class="t-headline">{{ clarification.question }}</h2>
         <p v-if="clarification.reason" class="t-body-regular reason">{{ clarification.reason }}</p>
       </div>
@@ -29,8 +38,11 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
     </div>
     <div class="options">
       <template v-for="(o, i) in clarification.options" :key="o.label">
-        <div v-if="i > 0" class="divider"><span></span></div>
-        <button class="option squircle" @click="$emit('choose', o.label)">
+        <div v-if="i > 0" class="divider m-fade" :style="{ '--i': 3 + i }"><span></span></div>
+        <button
+          class="option squircle m-rise" :class="{ 'is-chosen': chosen === i }" :style="{ '--i': 3 + i }"
+          @click="choose(o.label, i)"
+        >
           <span class="key t-footnote-medium">{{ i + 1 }}</span>
           <span class="option-texts">
             <span class="t-body-large">{{ o.label }}</span>
@@ -43,7 +55,8 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
     <PromptBar
       mode="reply"
       :placeholder="`Type your answer to “${clarification.question}”`"
-      @submit="$emit('choose', $event)"
+      :vt-name="null"
+      @submit="choose($event)"
     />
   </section>
 </template>
@@ -56,6 +69,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
   border-radius: var(--radius-3xl);
   padding: 12px;
   display: flex; flex-direction: column; gap: 12px;
+  box-shadow: var(--elevation-2-overlay);   /* it asks for attention above the content */
 }
 /* 12 card padding + 8 = 20 from the card edge to the Stop button: concentric with radius 42 = 22 + 20 */
 .header { display: flex; align-items: flex-start; gap: 24px; padding: 8px 8px 8px 12px; }
@@ -82,7 +96,9 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
 .option-texts { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; color: var(--color-text-primary); }
 .detail { color: var(--color-text-secondary); }
 .arrow { visibility: hidden; color: var(--color-text-primary); }
-.option:hover { background: var(--color-bg-surface); }
-.option:hover .key { color: var(--color-text-primary); }
-.option:hover .arrow { visibility: visible; }
+.option:hover, .option.is-chosen { background: var(--color-bg-surface); }
+.option:hover .key, .option.is-chosen .key { color: var(--color-text-primary); }
+.option:hover .arrow, .option.is-chosen .arrow { visibility: visible; }
+.option.is-chosen .key { background: var(--color-bg-inverse); color: var(--color-text-inverse); border-color: transparent; }
+.key { transition: background-color var(--motion-fast) var(--ease-standard), color var(--motion-fast) var(--ease-standard); }
 </style>

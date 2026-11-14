@@ -18,15 +18,14 @@ class Settings(BaseSettings):
     products_file: Path = REPO_DIR / "shared" / "products.json"
     feedback_file: Path = BACKEND_DIR / "var" / "feedback.jsonl"
 
-    # Motore RAG: mock (incluso), python (RAG_PYTHON=modulo:funzione) o http (RAG_URL)
-    rag_engine: Literal["mock", "python", "http"] = "mock"
-    rag_python: str | None = None
-    rag_python_search: str | None = None
+    # Motore RAG: python (la funzione del motore del team, rag/) o http (un servizio a parte, RAG_URL)
+    rag_engine: Literal["python", "http"] = "python"
+    rag_python: str | None = "rag.pipeline:answer"
+    rag_python_search: str | None = "rag.pipeline:search"
     rag_url: str | None = None
     rag_search_url: str | None = None
     rag_timeout_s: float = 60.0          # attesa massima della risposta del RAG
     stream_duration_s: float = 1.5       # durata massima dell'effetto "scrittura" nel frontend
-    mock_delay_s: float = 0.6            # motore finto: attesa tra un passo e l'altro, per vedere l'avanzamento
 
     # Domande a voce (POST /api/transcribe). Senza chiave il frontend usa il riconoscimento del browser.
     openai_api_key: str | None = None

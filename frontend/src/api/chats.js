@@ -1,8 +1,10 @@
 // Past chats for the Chats drawer (00), kept in this browser only.
 // Every read and write is guarded: private windows or blocked storage just mean no history.
 
-const KEY = 'telembot.chats.v1'
+const KEY = 'telembot.chats.v2'
 const MAX = 30
+// v1 could hold answers of the old fake engine: drop it
+try { localStorage.removeItem('telembot.chats.v1') } catch { /* storage blocked */ }
 
 export function loadChats() {
   try {

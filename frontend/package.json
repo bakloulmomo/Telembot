@@ -14,5 +14,9 @@
   "devDependencies": {
     "@vitejs/plugin-vue": "5.2.1",
     "vite": "5.4.11"
-  }
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "description": "Telembot frontend: reference implementation of the Figma design (NOI26). Use this code as is."
 }

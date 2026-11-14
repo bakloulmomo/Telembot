@@ -10,7 +10,6 @@ from app.settings import get_settings
 @pytest.fixture(scope="module")
 def client():
     get_settings().stream_duration_s = 0
-    get_settings().mock_delay_s = 0
     with TestClient(app) as c:
         yield c
 
@@ -29,7 +28,7 @@ def test_health(client):
     r = client.get("/api/health")
     assert r.status_code == 200
     body = r.json()
-    assert body["status"] == "ok" and body["rag_engine"] == "mock"
+    assert body["status"] == "ok" and body["rag_engine"] == "stub"
     assert body["products"] == 22 and body["sections"] > 1000
 
 
@@ -116,7 +115,7 @@ def test_files_blocked(client, path):
     assert client.get(path).status_code == 404
 
 
-# --- ricerca e chat (motore mock) -------------------------------------------------
+# --- ricerca e chat (motore finto dei test) -------------------------------------------------
 
 def test_search(client):
     r = client.post("/api/search", json={"query": "BellaBot battery capacity", "product_ids": ["bellabot"], "lang": "en"})
@@ -234,3 +233,45 @@ def test_source_panel_fields(client):
         (1, 3, "left", "BellaBot_User_Manual-multilanguage.pdf")
     de = client.get("/api/sources/bellabot/de/1.1").json()
     assert de["pdf_side"] in ("left", "right")
+
+
+# --- campi per l'interfaccia del designer (DATA.md) -----------------------------
+
+def test_citation_fields_for_the_sources_panel(client):
+    c = app.state.resolver.resolve({"product_id": "bellabot", "lang": "en", "section_id": "1.1",
+                                    "text": "chunk del RAG"}, 2)
+    assert (c.document, c.category, c.section_path) == ("BellaBot User Manual", "robot",
+                                                        "1. Safety instructions › 1.1 Power usage")
+    assert (c.page, c.pdf_page, c.page_side, c.pdf_file) == (1, 3, "left", "BellaBot_User_Manual-multilanguage.pdf")
+    assert "When the battery drops to 20%" in c.text and "chunk del RAG" not in c.text
+
+
+def test_section_text_has_no_ai_figure_descriptions(client):
+    c = app.state.resolver.resolve({"product_id": "t300", "lang": "en", "section_id": "2.3",
+                                    "figures": [{"id": "f", "path": "images/en-p003R-fig01.png",
+                                                 "caption": "AI: the figure identifies key components"}]}, 1)
+    assert "Figure description" not in c.text and "![" not in c.text and "**" not in c.text
+    assert "5 Lidar" in c.text                       # sezione fatta solo di figura: resta la legenda
+    f = c.figures[0]
+    assert f.caption == "2.3 Appearance and Components, PDF page 3" and f.page == 3
+    assert f.description.startswith("AI:")
+
+
+def test_done_has_clarification(client):
+    events = parse_sse(client.post("/api/chat", json={"message": "How long does BellaBot charge?"}).text)
+    c = events[-1][1]["clarification"]
+    assert c["question"] == "Which BellaBot do you mean?"
+    assert c["options"][0] == {"label": "BellaBot", "detail": "BellaBot User Manual"}
+    assert c["options"][2]["detail"] == "Side by side, each value with its source"
+
+
+def test_done_has_comparison_for_two_products(client):
+    from app.presentation import comparison
+    from app.schemas import Citation
+    cites = [Citation(n=1, label="", text="", product_id="kettybot"), Citation(n=2, label="", text="", product_id="bellabot")]
+    table = comparison(app.state.catalog, cites, "en")
+    assert [p["id"] for p in table["products"]] == ["kettybot", "bellabot"] and table["products"][1]["n"] == 2
+    labels = [r["label"] for r in table["rows"]]
+    assert labels[0] == "Narrowest aisle" and len(labels) <= 6
+    assert table["rows"][0]["values"]["kettybot"] == "55 cm"
+    assert comparison(app.state.catalog, cites[:1], "en") is None

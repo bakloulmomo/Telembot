@@ -1,0 +1,75 @@
+/* Telembot motion. Same file as ../../../animations/motion.css.
+   Every animation has a job: show where something comes from, say what the system is doing,
+   or lead the eye to the evidence. Nothing loops except work in progress. */
+
+:root {
+  --motion-fast: 120ms;     /* hover, press, color changes */
+  --motion-base: 200ms;     /* one element changes state */
+  --motion-slow: 320ms;     /* panels, morphs, screen changes */
+  --motion-exit: 240ms;     /* closing is quicker than opening */
+  --motion-stagger: 60ms;   /* answer reveal, one piece after the other */
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+}
+
+/* ---------- keyframes ---------- */
+@keyframes m-rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes m-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes m-pop { from { opacity: 0; transform: scale(0.6); } to { opacity: 1; transform: none; } }
+@keyframes m-shimmer { from { background-position: 100% 0; } to { background-position: 0% 0; } }
+@keyframes m-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
+@keyframes m-sweep { from { background-size: 0% 100%; } to { background-size: 100% 100%; } }
+
+/* ---------- reusable reveal classes (set --i for the order) ---------- */
+.m-rise { animation: m-rise var(--motion-slow) var(--ease-standard) both; animation-delay: calc(var(--i, 0) * var(--motion-stagger)); }
+.m-fade { animation: m-fade var(--motion-slow) var(--ease-standard) both; animation-delay: calc(var(--i, 0) * var(--motion-stagger)); }
+.m-pop  { animation: m-pop var(--motion-base) var(--ease-standard) both; animation-delay: calc(var(--i, 0) * var(--motion-stagger)); }
+
+/* ---------- press feedback ---------- */
+button, a { transition: background-color var(--motion-fast) var(--ease-standard), color var(--motion-fast) var(--ease-standard), transform 100ms var(--ease-standard); }
+button:not(:disabled):active, a:active { transform: scale(0.97); }
+.icon-btn:not(:disabled):active { transform: scale(0.92); }
+
+/* ---------- Vue <Transition> names ---------- */
+/* panels push the page: the slot grows from 0, the page area shrinks with it */
+.push-enter-active { transition: width var(--motion-slow) var(--ease-standard); }
+.push-leave-active { transition: width var(--motion-exit) var(--ease-exit); }
+.push-enter-from, .push-leave-to { width: 0 !important; }
+
+/* content swap inside a panel */
+.xfade-enter-active, .xfade-leave-active { transition: opacity 160ms var(--ease-standard); }
+.xfade-enter-from, .xfade-leave-to { opacity: 0; }
+
+/* a line of text replaced by the next one (progress detail) */
+.swap-enter-active { transition: opacity var(--motion-base) var(--ease-standard), transform var(--motion-base) var(--ease-standard); }
+.swap-leave-active { transition: opacity 120ms var(--ease-exit), transform 120ms var(--ease-exit); }
+.swap-enter-from { opacity: 0; transform: translateY(4px); }
+.swap-leave-to { opacity: 0; transform: translateY(-4px); }
+
+/* an icon replaced by another (spinner → check) */
+.pop-enter-active { animation: m-pop var(--motion-base) var(--ease-standard) both; }
+.pop-leave-active { display: none; }
+
+/* list reorder (pinned chats move to the top) */
+.reorder-move { transition: transform 240ms var(--ease-standard); }
+
+/* ---------- View Transitions (home → conversation, prompt bar ↔ clarification card) ---------- */
+::view-transition-group(*) { animation-duration: var(--motion-slow); animation-timing-function: var(--ease-standard); }
+::view-transition-old(root) { animation: m-fade var(--motion-base) var(--ease-exit) reverse both; }
+::view-transition-new(root) { animation: m-fade var(--motion-base) var(--ease-standard) both; }
+::view-transition-old(question), ::view-transition-new(question),
+::view-transition-old(input-bar), ::view-transition-new(input-bar) { animation-duration: var(--motion-slow); height: 100%; }
+
+/* ---------- off switches ---------- */
+html.motion-off *, html.motion-off *::before, html.motion-off *::after {
+  animation: none !important; transition: none !important;
+}
+html.motion-off::view-transition-group(*), html.motion-off::view-transition-old(*), html.motion-off::view-transition-new(*) { animation: none !important; }
+
+@media (prefers-reduced-motion: reduce) {
+  /* keep fades (they carry meaning), drop movement and loops */
+  .m-rise, .m-pop { animation-name: m-fade; }
+  *, *::before, *::after { animation-iteration-count: 1 !important; }
+  button:active, a:active, .icon-btn:active { transform: none !important; }
+  ::view-transition-group(*) { animation-duration: 0.01ms; }
+}

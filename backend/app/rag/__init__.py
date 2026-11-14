@@ -15,7 +15,6 @@ Una fonte può essere una stringa o un oggetto con il testo del chunk
 obbligatorio: app/citations.py ritrova prodotto e sezione anche dal solo testo.
 
 Tre modi di collegare un motore (RAG_ENGINE nel file .env):
-    mock    motore finto incluso, per sviluppare senza il RAG
     python  una funzione Python, es. RAG_PYTHON=rag.pipeline:answer
     http    un servizio qualsiasi, es. RAG_URL=http://localhost:9000/ask
 """
@@ -112,5 +111,4 @@ def create_engine(settings: Settings, catalog):
         if not settings.rag_url:
             raise RuntimeError("RAG_ENGINE=http richiede RAG_URL nel file .env")
         return HttpRag(settings.rag_url, settings.rag_search_url, timeout_s=settings.rag_timeout_s)
-    from app.rag.mock import MockRag
-    return MockRag(catalog)
+    raise RuntimeError(f"RAG_ENGINE non valido: {settings.rag_engine!r} (python oppure http)")

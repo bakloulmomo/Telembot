@@ -164,18 +164,10 @@ One question, with the full answer printed:
 venv/Scripts/python eval/run_eval.py fig-1 --show
 ```
 
-The backend's own tests (no API calls). They expect the backend's fake engine, so `RAG_ENGINE` is set to `mock` for this one command.
-
-Windows (PowerShell):
+The backend's own tests (no API calls: they use a test-only fake engine, `backend/tests/stub_rag.py`):
 
 ```bash
-$env:RAG_ENGINE="mock"; venv/Scripts/python -m pytest backend -q; Remove-Item Env:RAG_ENGINE
-```
-
-macOS / Linux / Git Bash:
-
-```bash
-RAG_ENGINE=mock venv/bin/python -m pytest backend -q
+cd backend && ../venv/bin/python -m pytest -q
 ```
 
 ---
@@ -188,5 +180,4 @@ RAG_ENGINE=mock venv/bin/python -m pytest backend -q
 | `Cartelle mancanti in …` at server start | `DATA_DIR` in `backend/.env` does not point to the folder that contains `manuals/` and `accessories/` |
 | `Set CONNECTION_STRING in .env` | The root `.env` is missing or in the wrong folder |
 | The test page answers "Non è stato possibile generare la risposta" | The engine failed: look at the server terminal for the error (usually the OpenAI key or the database connection) |
-| `/api/health` shows `"rag_engine":"mock"` | `backend/.env` is missing: the backend is using its fake engine |
 | Port 8000 already in use | See "Stop the system", or use another port |

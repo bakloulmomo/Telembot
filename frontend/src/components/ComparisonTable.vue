@@ -2,7 +2,9 @@
 import { computed } from 'vue'
 import Icon from './Icon.vue'
 import SourceMarks from './SourceMarks.vue'
-const props = defineProps({ comparison: { type: Object, required: true } })
+// Reveal: rows appear top to bottom; once the data is on screen the recommended columns light up,
+// so the eye goes to the answer after seeing the evidence.
+const props = defineProps({ comparison: { type: Object, required: true }, delay: { type: Number, default: 0 } })
 const cols = computed(() => props.comparison.products)
 const grid = computed(() => ({ gridTemplateColumns: `164px repeat(${cols.value.length}, minmax(0, 1fr))` }))
 const isRec = (id) => props.comparison.recommended?.includes(id)
@@ -14,19 +16,19 @@ const lastRow = computed(() => props.comparison.rows.length + 1)
   <div class="table" role="table" :style="grid">
     <!-- recommended columns: surface background, inset 4 px each side so neighbours never touch -->
     <template v-for="(p, ci) in cols" :key="'hl-' + p.id">
-      <span v-if="isRec(p.id)" class="highlight squircle" :style="{ gridColumn: ci + 2, gridRow: `1 / ${lastRow + 1}` }"></span>
+      <span v-if="isRec(p.id)" class="highlight squircle m-fade" :style="{ gridColumn: ci + 2, gridRow: `1 / ${lastRow + 1}`, '--i': delay + lastRow + 2 }"></span>
     </template>
 
     <span class="cell head" role="columnheader" :style="at(1, 1)"></span>
-    <span v-for="(p, ci) in cols" :key="'h-' + p.id" class="cell head" role="columnheader" :style="at(1, ci + 2)">
-      <span class="t-body-strong">{{ p.name }}</span><SourceMarks :ns="p.n ? [p.n] : []" :size="16" />
+    <span v-for="(p, ci) in cols" :key="'h-' + p.id" class="cell head m-fade" role="columnheader" :style="{ ...at(1, ci + 2), '--i': delay }">
+      <span class="t-body-strong">{{ p.name }}</span><SourceMarks :ns="[p.n]" :size="16" />
     </span>
 
     <template v-for="(row, ri) in comparison.rows" :key="row.label">
-      <span class="cell label t-callout-regular" :class="{ last: ri + 2 === lastRow }" role="rowheader" :style="at(ri + 2, 1)">{{ row.label }}</span>
+      <span class="cell label t-callout-regular m-fade" :class="{ last: ri + 2 === lastRow }" role="rowheader" :style="{ ...at(ri + 2, 1), '--i': delay + ri + 1 }">{{ row.label }}</span>
       <span
-        v-for="(p, ci) in cols" :key="row.label + p.id" class="cell" :class="{ last: ri + 2 === lastRow }"
-        role="cell" :style="at(ri + 2, ci + 2)"
+        v-for="(p, ci) in cols" :key="row.label + p.id" class="cell m-fade" :class="{ last: ri + 2 === lastRow }"
+        role="cell" :style="{ ...at(ri + 2, ci + 2), '--i': delay + ri + 1 }"
       >
         <template v-if="row.kind === 'fit'">
           <span v-if="row.values[p.id]" class="fit yes"><Icon name="check_circle" /><span class="t-callout-medium">Yes</span></span>

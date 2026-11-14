@@ -1,8 +1,9 @@
 # Telembot — backend
 
 API FastAPI per l'assistente sui manuali PUDU: catalogo prodotti, testo delle fonti,
-immagini e PDF, ricerca e chat in streaming. Funziona con qualsiasi motore RAG (vedi sotto);
-finché quello del team non è pronto si usa un motore finto (`RAG_ENGINE=mock`).
+immagini e PDF, ricerca e chat in streaming. Usa il motore RAG del team (`rag/`) o qualsiasi altro
+motore (vedi sotto). Non ha un motore finto: le risposte vengono sempre dal RAG vero.
+I test automatici usano un motore finto solo per sé (`tests/stub_rag.py`), senza chiamare OpenAI.
 
 ## Avvio
 
@@ -80,12 +81,11 @@ Immagini, in ordine di priorità: `figures` (le figure scelte dal motore, con la
 `[{"path": "images/…", "caption", "labels": [{"n", "text"}]}]`), poi `image_paths`,
 altrimenti tutte le immagini della sezione.
 
-Tre modi di collegarlo, scelti in `backend/.env`:
+Due modi di collegarlo, scelti in `backend/.env`:
 
 | `RAG_ENGINE` | Configurazione | Quando usarlo |
 |---|---|---|
-| `mock` | nessuna | sviluppo dell'interfaccia senza il RAG |
-| `python` | `RAG_PYTHON=rag.pipeline:answer` | il RAG è codice Python nel repo (cartella `rag/`) |
+| `python` (predefinito) | `RAG_PYTHON=rag.pipeline:answer` (predefinito) | il RAG è codice Python nel repo (cartella `rag/`) |
 | `http` | `RAG_URL=http://localhost:9000/ask` | il RAG è un servizio a parte, in qualsiasi linguaggio |
 
 In modalità `http` il backend invia `POST {"question", "history", "lang", "product_ids"}` e accetta
@@ -129,9 +129,10 @@ backend/
 │   ├── products.py      registro prodotti da shared/products.json
 │   ├── catalog.py       catalogo in memoria, specifiche normalizzate, URL
 │   ├── citations.py     da fonte del RAG a citazione con link
+│   ├── presentation.py  chiarimento e tabella di confronto per l'interfaccia
 │   ├── transcribe.py    da audio a testo (OpenAI), per le domande a voce
 │   ├── static/          pagina di prova /test e voice.js
-│   ├── rag/             contratto minimo, adattatori python/http, motore finto
+│   ├── rag/             contratto minimo, adattatori python/http
 │   └── routes/          un file per gruppo di endpoint
 ├── tests/             test dell'API e del contratto con il RAG
 └── api.http

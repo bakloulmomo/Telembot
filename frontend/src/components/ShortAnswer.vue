@@ -8,8 +8,8 @@ defineProps({ answer: { type: Object, required: true } })
   <div v-if="answer.style === 'technical'" class="short">
     <div v-if="answer.short_answer?.values?.length" class="values">
       <template v-for="(v, i) in answer.short_answer.values" :key="i">
-        <span v-if="i > 0" class="divider" aria-hidden="true"></span>
-        <div class="kv">
+        <span v-if="i > 0" class="divider m-fade" :style="{ '--i': i }" aria-hidden="true"></span>
+        <div class="kv m-rise" :style="{ '--i': i }">
           <div class="value-row">
             <span class="t-title-large value">{{ v.value }}</span>
             <span class="t-headline unit">{{ v.unit }}</span>
@@ -21,15 +21,15 @@ defineProps({ answer: { type: Object, required: true } })
         </div>
       </template>
     </div>
-    <p v-for="g in answer.gaps.filter((g) => g.topic)" :key="g.topic" class="t-footnote-medium gap">
+    <p v-for="g in answer.gaps.filter((g) => g.topic)" :key="g.topic" class="t-footnote-medium gap m-fade" style="--i: 2">
       {{ g.topic }}: not in the manuals
     </p>
   </div>
 
   <!-- Plain (non-technical): a plain headline and one sentence -->
   <div v-else class="short plain">
-    <p class="t-title-small">{{ answer.short_answer?.headline }}<SourceMarks v-if="answer.short_answer?.ns?.length" :ns="answer.short_answer.ns" /></p>
-    <p v-if="answer.shortParts" class="t-body-large sentence">
+    <p class="t-title-small m-rise">{{ answer.short_answer?.headline }}</p>
+    <p v-if="answer.shortParts" class="t-body-large sentence m-fade" style="--i: 1">
       <template v-for="(c, i) in answer.shortParts" :key="i">{{ c.text }}<SourceMarks :ns="c.ns" />{{ ' ' }}</template>
     </p>
   </div>

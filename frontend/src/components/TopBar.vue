@@ -10,6 +10,7 @@ defineEmits(['open-chats'])
       <button class="icon-btn icon-btn--ghost menu" aria-label="Open chats" @click="$emit('open-chats')">
         <Icon name="left_panel_open" :size="20" />
       </button>
+      <img class="mark" src="/brand/telmekom-mark.png" width="24" height="24" alt="Telmekom" />
       <span class="t-headline">Telembot</span>
     </div>
     <span v-else></span>
@@ -26,5 +27,6 @@ defineEmits(['open-chats'])
 }
 .left { display: flex; align-items: center; gap: 8px; }
 .menu { color: var(--color-text-primary); }
+.mark { display: block; flex: none; }
 .counts { color: var(--color-text-secondary); }
 </style>

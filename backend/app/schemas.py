@@ -29,21 +29,29 @@ class Figure(BaseModel):
     """Una figura del manuale scelta dal motore RAG per questa risposta."""
     id: str | None = None
     url: str
-    caption: str | None = None
+    caption: str | None = None           # didascalia dal manuale: sezione e pagina, mai il testo dell'AI
+    page: int | None = None              # pagina PDF della figura (dal nome del file)
     labels: list[FigureLabel] = []       # legenda stampata nel PDF
+    description: str | None = None       # descrizione scritta dall'AI: da non mostrare come testo del manuale
 
 
 class Citation(BaseModel):
     """Una fonte della risposta, già collegata al manuale quando è possibile."""
     n: int                               # numero usato nel testo: [1], [2] …
     label: str                           # es. "BellaBot · 2.4 Specifications"
-    text: str                            # testo del chunk restituito dal RAG
+    text: str                            # testo della sezione del manuale (senza figure né testi AI), o del chunk
     product_id: str | None = None
     product_name: str | None = None
+    category: Literal["robot", "accessory"] | None = None
+    document: str | None = None          # es. "BellaBot User Manual"
     lang: Lang | None = None
     section_id: str | None = None
     section_title: str | None = None
-    page: int | None = None
+    section_path: str | None = None      # es. "1. Safety instructions › 1.1 Power usage"
+    page: int | None = None              # pagina stampata
+    pdf_page: int | None = None          # pagina del PDF originale
+    page_side: Literal["left", "right"] | None = None   # colonna della pagina del PDF
+    pdf_file: str | None = None
     score: float | None = None
     source_url: str | None = None        # /api/sources/… se la sezione è stata riconosciuta
     pdf_url: str | None = None

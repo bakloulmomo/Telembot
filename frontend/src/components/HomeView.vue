@@ -1,7 +1,16 @@
 <script setup>
+import { ref } from 'vue'
 import Composer from './Composer.vue'
 import StartingPoint from './StartingPoint.vue'
-defineEmits(['ask'])
+import { motionOn } from '../api/motion.js'
+const emit = defineEmits(['ask'])
+const composer = ref(null)
+// Clicking an example: the question appears in the field for a moment, then travels up to become the title.
+const pick = async (q) => {
+  await composer.value.fill(q)
+  setTimeout(() => emit('ask', q), motionOn() ? 220 : 0)
+}
+defineExpose({ pick })
 </script>
 
 <template>
@@ -9,19 +18,19 @@ defineEmits(['ask'])
     <div class="block">
       <h1 class="t-title-large title">What do you need to know?</h1>
       <p class="t-body-large subtitle">Answers from the PUDU manuals, with the page they come from.</p>
-      <Composer class="composer" @submit="$emit('ask', $event)" />
+      <Composer ref="composer" class="composer" @submit="$emit('ask', $event)" />
       <div class="starts">
         <StartingPoint
           icon="manage_search" title="Look up a spec"
           description="Exact values with units, procedures and fixes."
           :questions="['How long does BellaBot charge?', 'Where is the BellaBot Pro emergency stop?']"
-          @pick="$emit('ask', $event)"
+          @pick="pick"
         />
         <StartingPoint
           icon="compare_arrows" title="Find the right robot"
           description="Plain answers and side-by-side comparisons."
           :questions="['Which robot fits 60 cm aisles?', 'BellaBot or BellaBot Pro: what changes?']"
-          @pick="$emit('ask', $event)"
+          @pick="pick"
         />
       </div>
     </div>

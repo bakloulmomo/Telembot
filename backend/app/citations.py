@@ -31,6 +31,49 @@ _LANG_FILE_RE = re.compile(r"(?:^|[/\\_.-])(en|de|it)\.(?:md|pdf)$", re.I)
 _PAGE_RE = re.compile(r"\d+")
 _WS_RE = re.compile(r"\s+")
 MAX_TEXT = 1500
+MAX_SECTION_TEXT = 6000
+_FIG_PAGE_RE = re.compile(r"-p0*(\d+)[LR]?-fig", re.I)
+_AI_NOTE_RE = re.compile(r"^>\s*\*?(Figure description|Abbildungsbeschreibung|Descrizione della figura)", re.I)
+_LEGEND_RE = re.compile(r"^\*(Labels|Beschriftungen|Etichette):?\*:?$", re.I)
+
+
+def figure_pdf_page(path: str) -> int | None:
+    """images/en-p004R-fig02.png → 4"""
+    m = _FIG_PAGE_RE.search(path)
+    return int(m.group(1)) if m else None
+
+
+def section_path(manual, section: Section) -> str:
+    """"1. Safety instructions › 1.1 Power usage" """
+    own = f"{section.number} {section.title}" if section.number else section.title
+    if section.number and "." in section.number:
+        parent = manual.get(section.number.rsplit(".", 1)[0])
+        if parent:
+            return f"{parent.number}. {parent.title} › {own}"
+    return f"{section.number}. {section.title}" if section.number else own
+
+
+def manual_text(markdown: str) -> str:
+    """Il testo della sezione come stampato nel manuale: senza immagini, senza le descrizioni
+    delle figure scritte dall'AI e senza grassetti. La legenda di una figura resta solo se la
+    sezione non ha altro testo (un elenco di parti come "5 Lidar")."""
+    lines, legend, in_legend = [], [], False
+    for raw in markdown.splitlines():
+        line = raw.strip()
+        if line.startswith("![") or _AI_NOTE_RE.match(line):
+            continue
+        if _LEGEND_RE.match(line):
+            in_legend = True
+            continue
+        if in_legend and line.startswith(("- ", "* ")):
+            legend.append(line.replace("**", ""))
+            continue
+        if line:
+            in_legend = False
+        lines.append(raw.replace("**", ""))
+    text = "\n".join(lines).strip()
+    has_text = any(l.strip() and not l.lstrip().startswith("#") for l in lines)
+    return text if has_text else "\n".join([text, *legend]).strip()
 
 
 def _norm(text: str) -> str:
@@ -199,7 +242,7 @@ class CitationResolver:
         label = self._label(src, data, section, n)
         # immagini: prima le figure scelte dal RAG (con la legenda), poi gli image_paths
         # della fonte, altrimenti tutte quelle della sezione
-        figures = self._figures(src, pid)
+        figures = self._figures(src, pid, section)
         if figures is not None:
             images = [f.url for f in figures]
         else:
@@ -209,13 +252,20 @@ class CitationResolver:
         return Citation(
             n=n,
             label=label,
-            text=text[:MAX_TEXT],
+            # il testo del manuale per la "foto" della pagina nel pannello; il chunk del RAG se la sezione è ignota
+            text=manual_text(section.markdown)[:MAX_SECTION_TEXT] if section else text[:MAX_TEXT],
             product_id=pid,
             product_name=data.product.name if data else None,
+            category=data.product.category if data else None,
+            document=(manual.meta.get("title") or f"{data.product.name} User Manual") if manual else None,
             lang=manual.lang if manual else None,
             section_id=section.key if section else None,
             section_title=section.title if section else None,
+            section_path=section_path(manual, section) if section and manual else None,
             page=section.page if section else self._page(src),
+            pdf_page=section.pdf_page if section else None,
+            page_side=section.pdf_side if section else None,
+            pdf_file=manual.source_pdf if manual else None,
             score=self._score(src),
             source_url=self.catalog.source_url(pid, manual.lang, section.key) if section and manual else None,
             pdf_url=self.catalog.pdf_url(pid, manual, section.pdf_page if section else None) if manual else None,
@@ -224,7 +274,7 @@ class CitationResolver:
             note=str(src["note"])[:1000] if src.get("note") else None,
         )
 
-    def _figures(self, src: dict, pid: str | None) -> list[Figure] | None:
+    def _figures(self, src: dict, pid: str | None, section: Section | None = None) -> list[Figure] | None:
         """Figure scelte dal RAG per questa fonte.
 
         None se il RAG non dice nulla sulle figure (in quel caso si mostrano tutte
@@ -241,8 +291,11 @@ class CitationResolver:
             item = item if isinstance(item, dict) else {}
             labels = [FigureLabel(n=(str(l["n"]) if l.get("n") is not None else None), text=str(l.get("text", "")))
                       for l in item.get("labels") or [] if isinstance(l, dict)]
-            out.append(Figure(id=item.get("id"), url=self.catalog.file_url(pid, path),
-                              caption=item.get("caption"), labels=labels))
+            pdf_page = figure_pdf_page(path)
+            where = f"{section.number} {section.title}" if section and section.number else (section.title if section else "")
+            caption = ", ".join(x for x in (where, f"PDF page {pdf_page}" if pdf_page else "") if x) or None
+            out.append(Figure(id=item.get("id"), url=self.catalog.file_url(pid, path), caption=caption,
+                              page=pdf_page, labels=labels, description=item.get("caption")))
         return out
 
     @staticmethod

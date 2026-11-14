@@ -1,10 +1,10 @@
 // Turns the answer text with [n] markers into paragraphs of claims.
 // "Sentence one. [1] Sentence two. [2][3]" → [{ text: 'Sentence one.', ns: [1] }, { text: 'Sentence two.', ns: [2, 3] }]
-// The engine may write "hours [1]." or Markdown lists and bold; the design shows plain prose
-// with the number after the claim: "hours. [1]".
+// The engine may write "hours [1].", Markdown lists and bold, or leave tags such as [FIGURE t300:it:p030R-fig01]:
+// the design shows plain prose with the number after the claim, "hours. [1]".
 export function normalizeAnswer(text = '') {
   return text
-    .replace(/\s*\[(?!\d+\])[^\]\n]*\]/g, '')          // engine tags such as [FIGURE t300:it:p030R-fig01]
+    .replace(/\s*\[(?!\d+\])[^\]\n]*\]/g, '')
     .replace(/\*\*|__/g, '')
     .replace(/^\s*#{1,6}\s+/gm, '')
     .replace(/^(\s*(?:[-*•]|\d+[.)])\s+.*?[^.!?:;\]])((?:\s*\[\d+\])*)\s*$/gm, '$1.$2')   // list item → sentence
@@ -37,14 +37,30 @@ export function parseAnswer(text = '') {
     })
 }
 
+// Splits a citation's raw section text into snapshot lines (used with the live backend).
+export function snapshotFromText(text = '') {
+  const rows = []
+  const lines = []
+  for (const raw of text.split('\n')) {
+    const l = raw.trim()
+    if (!l || /^\|?\s*-{3,}/.test(l) || /^#+\s/.test(l) || /^\*Page/.test(l)) continue
+    if (l.startsWith('|')) {
+      const cells = l.split('|').map((c) => c.trim()).filter(Boolean)
+      if (cells.length >= 2 && cells[0] !== 'Feature') rows.push([cells[0], cells.slice(1).join(' · ')])
+      continue
+    }
+    if (l.startsWith('>') || l.startsWith('![')) continue // never show AI figure descriptions as manual text
+    lines.push(l.replace(/^[-*]\s+/, ''))
+  }
+  return rows.length >= lines.length ? { kind: 'table', lines: rows } : { kind: 'bullets', lines }
+}
+
 // Picks the snapshot line that shares the most words with the claim (fallback when the backend sends no cited_lines).
-// Lines are strings (bullets), [label, value] rows, or { type, text, cells } from the real manual sections.
+// Common words do not count, "charges" matches "Charging", and a value printed in the manual ("4.5") counts double.
 const STOP = new Set('the and for with that this from are was were has have can will not you your its into when then than also only should must may might been more such each which what where does'.split(' '))
-const lineText = (line) => (Array.isArray(line) ? line.join(' ') : typeof line === 'object' ? (line.text ?? line.cells?.join(' ') ?? '') : line)
-// "charges" and "Charging" share the stem "charg"; numbers stay whole
 const stem = (w) => (/^[a-z]{6,}$/.test(w) ? w.slice(0, 5) : w)
 const words = (t) => (t.toLowerCase().match(/[\p{L}0-9.%–-]{2,}/gu) || [])
-  .map((w) => w.replace(/[.,]$/, '')).filter((w) => w.length >= 3 || /\d/.test(w)).filter((w) => !STOP.has(w)).map(stem)
+  .map((w) => w.replace(/[.,]$/, '')).filter((w) => (w.length >= 3 || /\d/.test(w)) && !STOP.has(w)).map(stem)
 
 export function guessCitedLines(lines, claimText) {
   if (!claimText || !lines?.length) return []
@@ -52,9 +68,8 @@ export function guessCitedLines(lines, claimText) {
   let best = -1
   let bestScore = 0
   lines.forEach((line, i) => {
-    if (line?.type === 'sub') return
-    // a value printed in the manual ("4.5") weighs as much as two words
-    const score = [...new Set(words(lineText(line)).filter((w) => claim.has(w)))].reduce((n, w) => n + (/\d/.test(w) ? 2 : 1), 0)
+    const t = Array.isArray(line) ? line.join(' ') : line
+    const score = [...new Set(words(t).filter((w) => claim.has(w)))].reduce((n, w) => n + (/\d/.test(w) ? 2 : 1), 0)
     if (score > bestScore) { bestScore = score; best = i }
   })
   return best >= 0 && bestScore >= 2 ? [best] : []

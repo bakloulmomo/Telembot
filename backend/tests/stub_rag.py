@@ -1,4 +1,6 @@
-"""Motore RAG finto, per sviluppare frontend e backend senza aspettare quello reale.
+"""Motore RAG finto, SOLO per i test automatici del backend (nessuna chiamata a OpenAI o al database).
+
+Non è più selezionabile dall'app: con RAG_ENGINE il backend usa sempre il motore vero.
 
 Cerca per parole chiave (un BM25 semplificato) nelle sezioni dei manuali e
 risponde con un testo di prova che elenca le sezioni trovate.
@@ -18,7 +20,6 @@ import re
 from collections import Counter
 from app.catalog import Catalog
 from app.rag import RagResult
-from app.settings import get_settings
 
 _WORD_RE = re.compile(r"\w+", re.UNICODE)
 _FIGURE_LINE_RE = re.compile(r"^\s*(!\[|>|\*(Labels|Beschriftungen|Etichette))")
@@ -78,11 +79,12 @@ _MORE = {
 }
 
 
-class MockRag:
-    name = "mock"
+class StubRag:
+    name = "stub"
 
-    def __init__(self, catalog: Catalog):
+    def __init__(self, catalog: Catalog, delay_s: float = 0):
         self.catalog = catalog
+        self.delay_s = delay_s
         self.chunks: list[dict] = []
         self._tf: list[Counter] = []
         self._len: list[int] = []
@@ -177,7 +179,7 @@ class MockRag:
 
     async def ask(self, question: str, history: list[dict], lang: str | None, product_ids: list[str],
                   progress=None) -> RagResult:
-        delay = get_settings().mock_delay_s
+        delay = self.delay_s
 
         async def emit(step: str, detail: str) -> None:
             if progress:

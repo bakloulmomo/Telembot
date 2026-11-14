@@ -7,7 +7,7 @@ const props = defineProps({
   page: [Number, String],
   heading: String,
   subheading: String,
-  kind: { type: String, default: 'bullets' },  // bullets | table | figure | mixed (real sections: { type, text, cells })
+  kind: { type: String, default: 'bullets' },  // bullets | table | figure
   lines: { type: Array, default: () => [] },
   cited: { type: Array, default: () => [] },   // indexes of cited lines
   image: Object,                                // { url, width, height }
@@ -38,25 +38,17 @@ onUpdated(fit)
       <p v-if="heading" class="t-callout-strong heading">{{ heading }}</p>
       <p v-if="subheading" class="t-footnote-strong subheading">{{ subheading }}</p>
       <template v-if="kind === 'bullets'">
-        <p v-for="(l, i) in lines" :key="i" class="line t-callout-regular" :class="{ cited: cited.includes(i) }">
+        <p v-for="(l, i) in lines" :key="i" class="line t-callout-regular" :class="{ cited: cited.includes(i) }" :style="{ '--k': cited.indexOf(i) }">
           <span>•</span><span>{{ l }}</span>
         </p>
       </template>
+      <template v-else-if="kind === 'paragraph'">
+        <p v-for="(l, i) in lines" :key="i" class="line para t-callout-regular" :class="{ cited: cited.includes(i) }">{{ l }}</p>
+      </template>
       <template v-else-if="kind === 'table'">
-        <p v-for="(r, i) in lines" :key="i" class="line row t-callout-regular" :class="{ cited: cited.includes(i) }">
+        <p v-for="(r, i) in lines" :key="i" class="line row t-callout-regular" :class="{ cited: cited.includes(i) }" :style="{ '--k': cited.indexOf(i) }">
           <span>{{ r[0] }}</span><span>{{ r[1] }}</span>
         </p>
-      </template>
-      <template v-else-if="kind === 'mixed'">
-        <template v-for="(l, i) in lines" :key="i">
-          <p v-if="l.type === 'sub'" class="t-footnote-strong subheading">{{ l.text }}</p>
-          <p v-else-if="l.type === 'row'" class="line row t-callout-regular" :class="{ cited: cited.includes(i) }">
-            <span>{{ l.cells[0] }}</span><span>{{ l.cells[1] }}</span>
-          </p>
-          <p v-else class="line t-callout-regular" :class="{ cited: cited.includes(i) }">
-            <span v-if="l.type === 'li'">•</span><span>{{ l.text }}</span>
-          </p>
-        </template>
       </template>
       <div v-else class="figure">
         <img :src="image.url" :width="image.width" :height="image.height" alt="Figure from the manual" />
@@ -90,7 +82,16 @@ onUpdated(fit)
 .subheading { color: var(--color-text-secondary); }
 .line { display: flex; gap: 8px; padding: 3px 6px; border-radius: var(--radius-xs); color: var(--color-text-secondary); }
 .line.row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.line.cited { background: var(--color-bg-accent-subtle); color: var(--color-text-primary); }
+/* Cited lines: the lime highlighter is drawn left to right (400 ms) once the panel is open,
+   one line after the other: it points the eye to the exact words the answer used. */
+.line.cited {
+  color: var(--color-text-primary);
+  background-image: linear-gradient(var(--color-bg-accent-subtle), var(--color-bg-accent-subtle));
+  background-repeat: no-repeat; background-size: 100% 100%;
+  animation: m-sweep 400ms var(--ease-standard) both;
+  animation-delay: calc(360ms + var(--k, 0) * 140ms);
+}
+@media (prefers-reduced-motion: reduce) { .line.cited { animation: none; } }
 .figure { display: flex; justify-content: center; }
 .figure img { display: block; max-width: 100%; height: auto; }
 .fade {

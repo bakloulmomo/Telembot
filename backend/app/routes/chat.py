@@ -16,6 +16,7 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 
+from app import presentation
 from app.catalog import Catalog
 from app.citations import CitationResolver
 from app.routes.deps import get_catalog, get_engine, get_resolver
@@ -118,9 +119,15 @@ async def chat(req: ChatRequest, catalog: Catalog = Depends(get_catalog),
         latency_ms = round((time.perf_counter() - start) * 1000)
         log.info("answer_id=%s products=%s sources=%d latency_ms=%d q=%r",
                  answer_id, products, len(citations), latency_ms, req.message[:200])
-        yield sse("done", {"answer_id": answer_id, "products": products, "latency_ms": latency_ms,
-                           "status": result.status, "language": result.language,
-                           "gaps": result.gaps, "options": result.options,
+        done = {"answer_id": answer_id, "products": products, "latency_ms": latency_ms,
+                "status": result.status, "language": result.language,
+                "gaps": result.gaps, "options": result.options}
+        # campi per l'interfaccia calcolati qui, senza AI (app/presentation.py)
+        if result.status == "needs_clarification":
+            done["clarification"] = presentation.clarification(result.answer, result.options, catalog)
+        elif result.status != "not_in_docs":
+            done["comparison"] = presentation.comparison(catalog, citations, result.language)
+        yield sse("done", {**done,
                            "number_audit": result.number_audit,
                            "hit_max_rounds": result.hit_max_rounds})
 
