@@ -10,7 +10,9 @@ REPO_DIR = BACKEND_DIR.parent
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=BACKEND_DIR / ".env", env_file_encoding="utf-8", extra="ignore")
+    # Il .env della radice (quello del motore RAG, con OPENAI_API_KEY) e poi backend/.env, che ha la precedenza
+    model_config = SettingsConfigDict(env_file=(REPO_DIR / ".env", BACKEND_DIR / ".env"), env_file_encoding="utf-8",
+                                      extra="ignore")
 
     data_dir: Path = REPO_DIR / "data"
     products_file: Path = REPO_DIR / "shared" / "products.json"
@@ -25,7 +27,13 @@ class Settings(BaseSettings):
     rag_timeout_s: float = 60.0          # attesa massima della risposta del RAG
     stream_duration_s: float = 1.5       # durata massima dell'effetto "scrittura" nel frontend
 
-    cors_origins: list[str] = ["http://localhost:5173", "http://127.0.0.1:5173"]
+    # Domande a voce (POST /api/transcribe). Senza chiave il frontend usa il riconoscimento del browser.
+    openai_api_key: str | None = None
+    openai_base_url: str = "https://api.openai.com/v1"
+    transcribe_model: str = "gpt-4o-mini-transcribe"
+    transcribe_max_mb: float = 10.0
+
+    cors_origins: list[str] =["http://localhost:5173", "http://127.0.0.1:5173"]
 
     @field_validator("data_dir", "products_file", "feedback_file")
     @classmethod

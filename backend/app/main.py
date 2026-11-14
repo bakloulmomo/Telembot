@@ -1,17 +1,19 @@
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
 from pathlib import Path
 
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.catalog import Catalog
 from app.citations import CitationResolver
 from app.rag import create_engine
-from app.routes import chat, files, misc, products, sources
+from app.routes import chat, files, misc, products, sources, voice
 from app.settings import get_settings
+from app.transcribe import Transcriber
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
@@ -22,9 +24,16 @@ async def lifespan(app: FastAPI):
     app.state.catalog = Catalog.load(settings.products_file, settings.data_dir)
     app.state.resolver = CitationResolver(app.state.catalog)
     app.state.engine = create_engine(settings, app.state.catalog)
+    app.state.transcriber = None
+    if settings.openai_api_key:
+        names = ", ".join(p.name for p in app.state.catalog.products)
+        app.state.transcriber = Transcriber(
+            settings.openai_api_key, settings.transcribe_model, settings.openai_base_url,
+            prompt=f"Domande sui manuali dei robot PUDU: {names}.")
     logging.getLogger("telembot").info(
-        "Catalogo caricato: %d prodotti, %d sezioni. Motore RAG: %s",
-        len(app.state.catalog.products), app.state.catalog.section_count, app.state.engine.name)
+        "Catalogo caricato: %d prodotti, %d sezioni. Motore RAG: %s. Trascrizione vocale: %s",
+        len(app.state.catalog.products), app.state.catalog.section_count, app.state.engine.name,
+        settings.transcribe_model if app.state.transcriber else "dal browser (manca OPENAI_API_KEY)")
     yield
 
 
@@ -41,8 +50,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-for module in (misc, products, sources, chat, files):
+for module in (misc, products, sources, chat, files, voice):
     app.include_router(module.router)
+
+
+# voice.js e la pagina di prova
+app.mount("/static", StaticFiles(directory=Path(__file__).parent / "static"), name="static")
 
 
 @app.get("/", include_in_schema=False)

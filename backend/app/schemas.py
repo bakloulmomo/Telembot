@@ -57,6 +57,11 @@ class HealthResponse(BaseModel):
     rag_engine: str
     products: int
     sections: int
+    transcription: bool = False          # True se POST /api/transcribe è configurato
+
+
+class TranscribeResponse(BaseModel):
+    text: str
 
 
 class SpecValue(BaseModel):

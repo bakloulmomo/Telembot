@@ -16,7 +16,8 @@ _feedback_lock = threading.Lock()
 @router.get("/health", response_model=HealthResponse, summary="Stato del servizio")
 def health(request: Request, catalog: Catalog = Depends(get_catalog)):
     return HealthResponse(status="ok", rag_engine=request.app.state.engine.name,
-                          products=len(catalog.products), sections=catalog.section_count)
+                          products=len(catalog.products), sections=catalog.section_count,
+                          transcription=getattr(request.app.state, "transcriber", None) is not None)
 
 
 @router.post("/feedback", response_model=FeedbackResponse, status_code=201, summary="Valutazione di una risposta")

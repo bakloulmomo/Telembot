@@ -29,6 +29,8 @@ I manuali vanno in `data/` (accanto a `backend/`); per usarne un'altra imposta `
 | POST | `/api/search` | Solo retrieval |
 | POST | `/api/chat` | Risposta in streaming SSE |
 | POST | `/api/feedback` | Pollice su/giù su una risposta (salvato in `var/feedback.jsonl`) |
+| POST | `/api/transcribe?lang=` | Domanda a voce: il corpo è l'audio (`audio/webm`, `audio/mp4`…), risponde `{"text"}` |
+| GET | `/static/voice.js` | Microfono pronto da usare nel frontend (vedi sotto) |
 
 `lang` accetta `it`, `en`, `de`. Se un manuale non esiste in quella lingua (FlashBot, GW1 e Pager
 non hanno l'italiano) l'API restituisce l'inglese e lo indica nella risposta.
@@ -90,6 +92,25 @@ In modalità `http` il backend invia `POST {"question", "history", "lang", "prod
 in risposta gli stessi formati. La ricerca (`/api/search`) è facoltativa: `RAG_PYTHON_SEARCH` oppure
 `RAG_SEARCH_URL`; senza, l'endpoint risponde 501.
 
+## Domande a voce
+
+`app/static/voice.js` registra la domanda e la trasforma in testo, senza dipendenze:
+
+```js
+import { createVoiceInput } from "http://localhost:8000/static/voice.js"   // o copiato nel frontend
+const voice = await createVoiceInput({ apiBase: "http://localhost:8000", onText, onState, onError })
+micButton.hidden = !voice.mode          // null = nessun modo disponibile
+micButton.onclick = () => voice.toggle() // l'ascolto si ferma da solo dopo una pausa
+```
+
+- **Con `OPENAI_API_KEY`** (nel `.env` della radice o in `backend/.env`): l'audio va a `POST /api/transcribe`,
+  che usa `TRANSCRIBE_MODEL` (predefinito `gpt-4o-mini-transcribe`). La lingua si riconosce da sola e i nomi
+  dei prodotti sono nel prompt, così «BellaBot» e «CC1» vengono scritti giusti.
+- **Senza chiave**: `/api/health` risponde `"transcription": false` e `voice.js` usa il riconoscimento vocale
+  del browser (Chrome, Edge, Safari) nella lingua del browser. Su Firefox il microfono resta nascosto.
+
+Il microfono funziona solo su `https` o su `localhost`. Si prova su `/test`.
+
 ## Sezioni dei manuali
 
 `app/manuals.py` divide ogni manuale in sezioni ai titoli numerati (`## 2.4 …`). La chiave di una
@@ -108,6 +129,8 @@ backend/
 │   ├── products.py      registro prodotti da shared/products.json
 │   ├── catalog.py       catalogo in memoria, specifiche normalizzate, URL
 │   ├── citations.py     da fonte del RAG a citazione con link
+│   ├── transcribe.py    da audio a testo (OpenAI), per le domande a voce
+│   ├── static/          pagina di prova /test e voice.js
 │   ├── rag/             contratto minimo, adattatori python/http, motore finto
 │   └── routes/          un file per gruppo di endpoint
 ├── tests/             test dell'API e del contratto con il RAG
