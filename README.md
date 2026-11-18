@@ -1,14 +1,30 @@
-# team-13 · Telembot
+# Telembot
 
-Conversational access to the PUDU robot manuals: ask a question in any language and get an answer taken only from the manuals, with citations and the relevant figure.
+**Answers from the PUDU manuals, with the page they come from.**
+NOI Hackathon / SFSCON 2026 · Telmekom challenge · team 13
+
+Telembot turns 22 PUDU robot and accessory manuals (English, German, Italian) into a conversational assistant for two kinds of users: technicians (exact values, procedures, troubleshooting) and non-technical users such as sales staff (which robot fits a need, how products compare).
+
+- **Grounded:** every statement carries the number of its source; one click opens the manual page with the cited line highlighted, the figure and the original PDF at the right page.
+- **Honest:** what the manuals do not cover (for example prices) is shown as "Not in the manuals", never invented. Every number in an answer is checked in code against the cited sources.
+- **Multilingual:** answers in the language of the question, whatever the language of the manual.
+- **API-first:** search, sources, product catalog and comparison are REST endpoints; the RAG engine sits behind a minimal contract and can be swapped.
+- **Results:** 25 of 25 test questions pass, about 3 seconds per answer.
+
+**Stack:** Vue 3 + Vite (design by the team's designer) · FastAPI (streaming answers) · PostgreSQL + pgvector · OpenAI `gpt-4.1` with tools and `text-embedding-3-small`.
+
+**Team:** Mohamed (backend and frontend) · Azam Afridi (RAG, architecture docs, number audit) · rosponiv-star (database, ingestion, RAG engine) · Valerio (UX/UI and Figma design).
+
+The PUDU manuals are not in this repository (copyright Shenzhen Pudu Technology Co., Ltd.): put them in `data/` as described below.
 
 ## What is in the repository
 
 | Folder | Content |
 |---|---|
+| `frontend/` | The web app (Vue 3): chat, live progress, sources panel, comparison table, chats, voice. See [frontend/README.md](frontend/README.md) |
 | `ingest/` | Loads the manuals into Postgres (pgvector): sections, figures, embeddings, specs. See [ingest/README.md](ingest/README.md) |
 | `rag/` | The RAG engine: question → grounded answer. See [rag/README.md](rag/README.md) |
-| `backend/` | FastAPI: chat (streaming), search, product catalog, images and PDFs. See [backend/README.md](backend/README.md) |
+| `backend/` | FastAPI: chat (streaming), search, product catalog, sources, images and PDFs, voice. See [backend/README.md](backend/README.md) |
 | `eval/` | 25 test questions and a runner |
 | `shared/` | Product registry, spec parameters and overrides |
 | `docs/` | Design, plan and progress notes. Start with [docs/7_rag_architecture.md](docs/7_rag_architecture.md) |
@@ -19,7 +35,7 @@ Conversational access to the PUDU robot manuals: ask a question in any language 
 - The engine answers how-to, troubleshooting, spec, comparison, "which robot…" and accessory questions, in the user's language, with citations.
 - Figures are returned with their label list when the question is about a part or a procedure step.
 - Questions the manuals do not cover get a clear "not in the documentation" answer.
-- A developer test page shows all of this in the browser. The final web interface is not built yet.
+- The web app (`frontend/`) shows all of this: live progress, answers with sources, the manual page with the cited line, figures, "Not in the manuals", comparison tables, saved chats and voice input.
 
 ---
 
@@ -92,11 +108,20 @@ All three loading commands can be run again safely. Only sections whose text cha
 venv/Scripts/python -m uvicorn app.main:app --app-dir backend --port 8000
 ```
 
-Wait for the line `Application startup complete`. Then open:
+Wait for the line `Application startup complete`. Then start the web app in a second terminal (Node.js 18 or newer):
+
+```bash
+cd frontend
+npm ci
+npm run dev
+```
+
+and open:
 
 | Address | What |
 |---|---|
-| http://localhost:8000/test | Test chat: ask a question, see the answer, sources and figures |
+| http://localhost:5173 | **The web app** |
+| http://localhost:8000/test | Developer test chat: answer, sources and figures |
 | http://localhost:8000/docs | All API endpoints, with a "Try it out" button |
 | http://localhost:8000/api/health | Quick check: engine in use, number of products |
 
